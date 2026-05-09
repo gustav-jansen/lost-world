@@ -30,7 +30,7 @@ const SMALL_DOMAINS = [
   domain("honey", "Honey", "Sweetness, bees, binding, healing, and treasured food.", "#ffb703", "Honeycomb", "Sweet Blood", "Bee Murmur", "Golden Hive", "food", "heal", "faith", "animals"),
   domain("echoes", "Echoes", "Repeated voices, warnings, caves, and remembered vows.", "#b8c0ff", "Echo Warning", "Remembered Voice", "Cave Omen", "Many Voices", "monsterFear", "faith", "fear", "faith"),
   domain("frost", "Frost", "Cold bite, stillness, preservation, and glittering fear.", "#caf0f8", "Frost Rime", "Cold Blood", "Ice Sign", "Deep Freeze", "monsterFear", "combat", "hide", "damageMonster"),
-  domain("paths", "Paths", "Trails, crossings, return, migration, and safe ways.", "#dda15e", "Open Path", "Sure Feet", "Trail Omen", "Sacred Road", "food", "hide", "faith", "defense"),
+  domain("paths", "Paths", "Trails, crossings, return, migration, and safe ways.", "#dda15e", "Open Path", "Sure Feet", "Trail Omen", "Sacred Road", "paths", "hide", "faith", "paths"),
 ];
 
 function domain(id, name, description, color, areaLabel, blessingLabel, influenceLabel, greatLabel, areaEffect, blessingEffect, influenceEffect, greatEffect) {

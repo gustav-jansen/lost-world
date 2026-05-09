@@ -57,7 +57,7 @@ button span {
 }
 
 .shell {
-  width: min(1320px, calc(100% - 1rem));
+  width: min(1680px, calc(100% - 1rem));
   margin: 0 auto;
   padding: 0.75rem 0 1rem;
 }
@@ -404,7 +404,7 @@ h2 {
 
 .game-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 1fr) 400px;
   gap: 0.75rem;
   margin-top: 0.75rem;
   padding: 0.75rem;
@@ -561,6 +561,13 @@ canvas {
 .forest { background: #1f4320; }
 .water { background: #254e6f; }
 .fruit { background: #a9a646; }
+.berries { background: #784a83; }
+.mushrooms { background: #8d7750; }
+.reeds { background: #637c45; }
+.flowers { background: #8a4d74; }
+.stone { background: #696d70; }
+.clay { background: #8f552f; }
+.path { background: #9d7843; }
 .person-dot { background: #f7e0a1; border-radius: 50%; }
 .animal-dot { background: #d8c78e; }
 .monster-dot { background: #d65d4f; clip-path: polygon(50% 0, 100% 100%, 0 100%); }

@@ -70,12 +70,15 @@
 
       <section class="game-layout">
         <div class="world-panel">
-          <canvas id="world" width="720" height="504" aria-label="Game world"></canvas>
+          <canvas id="world" width="1260" height="756" aria-label="Game world"></canvas>
           <div class="legend">
             <span><i class="tile grass"></i>Grass</span>
             <span><i class="tile forest"></i>Forest</span>
             <span><i class="tile water"></i>Water</span>
-            <span><i class="tile fruit"></i>Fruit</span>
+            <span><i class="tile fruit"></i>Food Plants</span>
+            <span><i class="tile stone"></i>Stone</span>
+            <span><i class="tile clay"></i>Clay</span>
+            <span><i class="tile path"></i>Path</span>
             <span><i class="person-dot"></i>Person</span>
             <span><i class="animal-dot"></i>Animal</span>
             <span><i class="monster-dot"></i>Monster</span>
@@ -100,14 +103,22 @@
             <h2>Miracles</h2>
             <div class="miracle-grid">
               <button id="growFruit" type="button">Grow Fruit <span>3 faith</span></button>
-              <button id="blessVitality" type="button">Bless Vitality <span>5 faith</span></button>
               <button id="sweetScent" type="button">Sweet Scent <span>4 faith</span></button>
               <button id="greatHarvest" type="button">Great Harvest <span>12 faith, divinity 2</span></button>
               <button id="cleanseRot" type="button">Cleanse Rot <span>8 faith, divinity 2</span></button>
               <button id="driveBeast" type="button">Drive Beast <span>10 faith, divinity 2</span></button>
               <button id="lightningFiend" type="button">Lightning Fiend <span>50 faith, divinity 2</span></button>
             </div>
-            <p class="hint">Select a person, then bless them. Hold 25 faith once to unlock divinity 2 permanently.</p>
+            <p class="hint">Miracles change the world. Hold 25 faith once to unlock divinity 2 permanently.</p>
+          </section>
+
+          <section class="panel-block">
+            <h2>Blessings</h2>
+            <div class="miracle-grid">
+              <button id="blessVitality" type="button">Bless Vitality <span>5 faith</span></button>
+              <button id="designatePriest" type="button">Designate Priest <span>free</span></button>
+            </div>
+            <p class="hint">Blessings affect selected people. A priest spreads your faith but costs faith if they die.</p>
           </section>
 
           <section class="panel-block">
