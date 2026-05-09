@@ -57,12 +57,13 @@ button span {
 }
 
 .shell {
-  width: min(1180px, calc(100% - 2rem));
+  width: min(1320px, calc(100% - 1rem));
   margin: 0 auto;
-  padding: 1.5rem 0 2rem;
+  padding: 0.75rem 0 1rem;
 }
 
 .hero,
+.event-alert,
 .game-layout,
 .log-panel {
   border: 1px solid var(--line);
@@ -75,7 +76,7 @@ button span {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.4rem;
+  padding: 0.9rem 1rem;
 }
 
 .eyebrow {
@@ -94,9 +95,9 @@ p {
 }
 
 h1 {
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.25rem;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(2rem, 5vw, 4.3rem);
+  font-size: clamp(1.8rem, 4vw, 3.2rem);
   line-height: 0.95;
 }
 
@@ -118,15 +119,15 @@ h2 {
 
 .status-card {
   display: grid;
-  grid-template-columns: repeat(4, minmax(5rem, 1fr));
-  gap: 0.65rem;
-  min-width: min(100%, 30rem);
+  grid-template-columns: repeat(5, minmax(5rem, 1fr));
+  gap: 0.45rem;
+  min-width: min(100%, 39rem);
 }
 
 .status-card div {
   border: 1px solid var(--line);
-  border-radius: 1rem;
-  padding: 0.85rem;
+  border-radius: 0.8rem;
+  padding: 0.55rem 0.7rem;
   background: var(--panel-strong);
 }
 
@@ -140,17 +141,60 @@ h2 {
 
 .status-card strong {
   display: block;
-  margin-top: 0.25rem;
+  margin-top: 0.1rem;
   color: var(--gold);
-  font-size: 1.75rem;
+  font-size: 1.35rem;
+}
+
+.status-card div:nth-child(4) strong {
+  color: var(--rot);
+}
+
+.status-card div:nth-child(5) strong {
+  color: var(--danger);
+  font-size: 1rem;
+}
+
+.event-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(87, 38, 92, 0.98), rgba(88, 35, 24, 0.98));
+  border-color: rgba(240, 154, 133, 0.65);
+}
+
+.event-alert.quiet {
+  background: rgba(33, 25, 15, 0.72);
+  border-color: var(--line);
+}
+
+.event-alert span {
+  display: block;
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.event-alert strong {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 1.05rem;
+}
+
+.event-alert button {
+  width: min(13rem, 100%);
 }
 
 .game-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 1rem;
-  margin-top: 1rem;
-  padding: 1rem;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
 }
 
 .world-panel,
@@ -171,9 +215,29 @@ canvas {
   display: flex;
   flex-wrap: wrap;
   gap: 0.7rem;
-  margin-top: 0.8rem;
+  margin-top: 0.6rem;
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.bar-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.bar-strip span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem;
+  background: rgba(18, 15, 11, 0.45);
+}
+
+.bar-strip b {
+  color: var(--text);
 }
 
 .legend span {
@@ -203,20 +267,40 @@ canvas {
 
 .side-panel {
   display: grid;
-  gap: 1rem;
+  align-content: start;
+  max-height: calc(100vh - 13.2rem);
+  overflow: auto;
+  gap: 0.65rem;
 }
 
 .panel-block {
   border: 1px solid var(--line);
   border-radius: 1rem;
-  padding: 1rem;
+  padding: 0.75rem;
   background: rgba(18, 15, 11, 0.58);
 }
 
-.panel-block button {
+.miracle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.panel-block button,
+.miracle-grid button {
   width: 100%;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0;
   text-align: left;
+}
+
+.miracle-grid button {
+  padding: 0.65rem 0.7rem;
+  border-radius: 0.65rem;
+  font-size: 0.86rem;
+}
+
+.miracle-grid button span {
+  font-size: 0.68rem;
 }
 
 .hint {
@@ -285,22 +369,24 @@ canvas {
 
 .people-list {
   display: grid;
-  max-height: 22rem;
+  max-height: 18rem;
   overflow: auto;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .person-row {
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: 0.78rem;
 }
 
 .person-row.player {
-  outline: 1px solid rgba(240, 188, 84, 0.45);
+  background: rgba(240, 188, 84, 0.14);
+  outline: 2px solid rgba(240, 188, 84, 0.85);
 }
 
 .person-row.fiend {
-  outline: 1px solid rgba(179, 91, 214, 0.55);
+  background: rgba(179, 91, 214, 0.14);
+  outline: 2px solid rgba(179, 91, 214, 0.85);
 }
 
 .person-row.neutral {
@@ -314,14 +400,41 @@ canvas {
   line-height: 1.45;
 }
 
+.badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.4rem;
+  background: rgba(245, 234, 211, 0.12);
+  color: var(--text);
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.badge.player { background: rgba(240, 188, 84, 0.25); color: var(--gold); }
+.badge.fiend { background: rgba(179, 91, 214, 0.25); color: #dca4f5; }
+.badge.neutral { color: var(--muted); }
+
+.compact-meters {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.compact-meters .meter {
+  margin-top: 0;
+}
+
 .event-card strong,
 .threat-card strong {
   color: var(--text);
 }
 
 .log-panel {
-  margin-top: 1rem;
-  padding: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
 }
 
 .log-heading {
@@ -343,8 +456,8 @@ canvas {
 
 ol {
   display: grid;
-  max-height: 12rem;
-  margin: 1rem 0 0;
+  max-height: 8rem;
+  margin: 0.75rem 0 0;
   padding-left: 1.25rem;
   overflow: auto;
   gap: 0.35rem;
@@ -367,6 +480,19 @@ ol {
 
   .status-card {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .event-alert {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .event-alert button {
+    width: 100%;
+  }
+
+  .side-panel {
+    max-height: none;
   }
 }
 

@@ -6,6 +6,7 @@ const ui = {
   divinityLevel: document.querySelector("#divinityLevel"),
   followers: document.querySelector("#followers"),
   fiendFollowers: document.querySelector("#fiendFollowers"),
+  crisisStatus: document.querySelector("#crisisStatus"),
   peopleList: document.querySelector("#peopleList"),
   selectedPerson: document.querySelector("#selectedPerson"),
   eventLog: document.querySelector("#eventLog"),
@@ -55,6 +56,7 @@ const animalKinds = ["Deer", "Boar", "Bird"];
 
 const state = {
   faith: 10,
+  totalFaithEarned: 10,
   divinity: 1,
   day: 1,
   paused: false,
@@ -104,6 +106,12 @@ function addLog(text, tone = "") {
   state.log = state.log.slice(0, 30);
 }
 
+function gainFaith(amount) {
+  state.faith += amount;
+  state.totalFaithEarned += amount;
+  checkDivinity();
+}
+
 function randomLandPosition() {
   for (let tries = 0; tries < 200; tries += 1) {
     const x = rand(1, cols - 2);
@@ -147,8 +155,8 @@ function createPeople() {
     y: rand(7, 13),
     hunger: rand(28, 66),
     health: rand(70, 100),
-    faith: rand(0, 18),
-    rot: rand(0, 10),
+    faith: rand(4, 20),
+    rot: rand(0, 5),
     fear: rand(0, 20),
     alive: true,
     action: "waking",
@@ -171,7 +179,7 @@ function createAnimals() {
 }
 
 function createMonsters() {
-  return [spawnMonster(), spawnMonster()];
+  return [spawnMonster()];
 }
 
 function spawnMonster() {
@@ -190,8 +198,8 @@ function createFiend() {
     x: cols - 8,
     y: rows - 8,
     alive: true,
-    faith: 8,
-    cooldown: 2,
+    faith: 4,
+    cooldown: 5,
     domain: "Rot",
   };
 }
@@ -268,8 +276,8 @@ function wander(entity) {
 function updateAllegiance(person) {
   if (!person.alive) return;
   const previous = person.allegiance;
-  if (person.faith >= 50 && person.faith >= person.rot + 10) person.allegiance = "player";
-  else if (person.rot >= 50 && person.rot > person.faith) person.allegiance = "fiend";
+  if (person.faith >= 45 && person.faith >= person.rot + 5) person.allegiance = "player";
+  else if (person.rot >= 55 && person.rot > person.faith + 5) person.allegiance = "fiend";
   else if (person.faith < 35 && person.rot < 35) person.allegiance = "neutral";
 
   if (previous !== person.allegiance) {
@@ -315,7 +323,7 @@ function simulatePerson(person) {
   const tile = state.terrain[person.y][person.x];
   person.hunger = clamp(person.hunger + rand(6, 10), 0, 100);
   person.fear = clamp(person.fear - 2, 0, 100);
-  if (tile.rot > 0) influenceRot(person, 2, "walking through rot");
+  if (tile.rot > 0) influenceRot(person, 1, "walking through rot");
   if (state.sicknessTicks > 0 && chance(28)) person.health = clamp(person.health - rand(3, 7), 0, 100);
   if (person.blessed > 0) {
     person.blessed -= 1;
@@ -327,7 +335,7 @@ function simulatePerson(person) {
     person.health = clamp(person.health - rand(6, 12), 0, 100);
     person.action = "starving";
     influenceFaith(person, -4, "hunger went unanswered");
-    influenceRot(person, 2, "desperation made rot persuasive");
+    influenceRot(person, 1, "desperation made rot persuasive");
   }
 
   if (person.health <= 0) {
@@ -340,15 +348,15 @@ function simulatePerson(person) {
     person.hunger = clamp(person.hunger - rand(25, 40), 0, 100);
     person.health = clamp(person.health + rand(2, 6), 0, 100);
     person.action = "eating fruit";
-    influenceFaith(person, state.scentTicks > 0 ? 8 : 3, "finding fruit");
+    influenceFaith(person, state.scentTicks > 0 ? 10 : 4, "finding fruit");
     return;
   }
 
-  if (person.allegiance === "player" && chance(10)) {
+  if (person.allegiance === "player" && chance(16)) {
     const animal = nearestLiving(person, state.animals);
     if (animal && animal.score <= 2) {
       animal.alive = false;
-      state.faith += rand(3, 6);
+      gainFaith(rand(4, 8));
       person.action = "sacrificing animal";
       addLog(`${person.name} sacrifices a ${animal.kind.toLowerCase()} and grants you faith.`, "gold");
       return;
@@ -362,8 +370,8 @@ function simulatePerson(person) {
     return;
   }
 
-  if (person.allegiance === "player" && chance(28)) {
-    state.faith += 1;
+  if (person.allegiance === "player" && chance(35)) {
+    gainFaith(1);
     person.action = "praying";
     return;
   }
@@ -439,9 +447,9 @@ function simulateFiend() {
   const target = nearestPerson && (!nearestAnimal || nearestPerson.score <= nearestAnimal.score) ? nearestPerson : nearestAnimal;
 
   if (target) moveToward(fiend, target);
-  spreadRotAround(fiend, 1, 1);
+  if (chance(50)) spreadRotAround(fiend, 1, 1);
 
-  if (target && distance(fiend, target) === 0 && chance(45)) {
+  if (target && distance(fiend, target) === 0 && chance(25)) {
     if ("health" in target) {
       killPerson(target, "being devoured by the Rot Fiend");
       fiend.faith += target.allegiance === "fiend" ? 1 : 3;
@@ -454,7 +462,7 @@ function simulateFiend() {
   }
 
   if (fiend.cooldown > 0 || people.length === 0) return;
-  fiend.cooldown = rand(3, 5);
+  fiend.cooldown = rand(5, 7);
   const miracle = rand(1, 3);
 
   if (miracle === 1) {
@@ -470,19 +478,19 @@ function simulateFiend() {
     }
     addLog(`The Rot Fiend spoils ${spoiled} fruit patches.`, "bad");
   } else if (miracle === 2) {
-    const victims = people.sort((a, b) => distance(fiend, a) - distance(fiend, b)).slice(0, 4);
-    for (const victim of victims) influenceRot(victim, rand(8, 14), "the fiend whispered decay");
+    const victims = people.sort((a, b) => distance(fiend, a) - distance(fiend, b)).slice(0, 2);
+    for (const victim of victims) influenceRot(victim, rand(5, 9), "the fiend whispered decay");
     addLog("The Rot Fiend whispers decay into mortal dreams.", "bad");
   } else {
     const cultist = fiendFollowers()[0] || people[rand(0, people.length - 1)];
-    influenceRot(cultist, 16, "a rot blessing took root");
+    influenceRot(cultist, 10, "a rot blessing took root");
     cultist.health = clamp(cultist.health + 12, 0, 100);
     addLog(`The Rot Fiend blesses ${cultist.name} with a wet black crown.`, "bad");
   }
 }
 
 function maybeTriggerEvent() {
-  if (state.event || state.day < 4 || state.day % 6 !== 0 || !chance(55)) return;
+  if (state.event || state.day < 8 || state.day % 7 !== 0 || !chance(45)) return;
   const events = [
     { type: "drought", title: "Drought", cost: 7, text: "The grove dries out. Fruit begins to fail." },
     { type: "sickness", title: "Sickness", cost: 9, text: "A coughing sickness moves through the camp." },
@@ -527,7 +535,7 @@ function answerEvent() {
 }
 
 function checkDivinity() {
-  state.divinity = state.faith >= 25 ? 2 : 1;
+  state.divinity = state.totalFaithEarned >= 25 ? 2 : 1;
 }
 
 function checkEnd() {
@@ -591,7 +599,7 @@ function growFruitNear(center, count, faithGain) {
       grown += 1;
     }
   }
-  for (const person of livingPeople()) if (distance(person, center) <= 6) influenceFaith(person, faithGain, "witnessing sudden fruit");
+  for (const person of livingPeople()) if (distance(person, center) <= 7) influenceFaith(person, faithGain, "witnessing sudden fruit");
   return grown;
 }
 
@@ -599,7 +607,7 @@ function growFruit() {
   if (!spendFaith(3)) return;
   const people = livingPeople();
   const center = people[rand(0, people.length - 1)] || { x: 13, y: 10 };
-  const grown = growFruitNear(center, 8, 8);
+  const grown = growFruitNear(center, 9, 10);
   addLog(`You grow ${grown} patches of miraculous fruit.`, "good");
   draw();
   renderUi();
@@ -615,9 +623,9 @@ function blessVitality() {
   if (!person || !spendFaith(5)) return;
   person.health = clamp(person.health + 35, 0, 100);
   person.hunger = clamp(person.hunger - 12, 0, 100);
-  person.rot = clamp(person.rot - 14, 0, 100);
+  person.rot = clamp(person.rot - 18, 0, 100);
   person.blessed = 5;
-  influenceFaith(person, 20, "feeling divine sweetness in their blood");
+  influenceFaith(person, 25, "feeling divine sweetness in their blood");
   addLog(`You bless ${person.name} with fruit vitality.`, "good");
   draw();
   renderUi();
@@ -626,7 +634,7 @@ function blessVitality() {
 function sweetScent() {
   if (!spendFaith(4)) return;
   state.scentTicks = 4;
-  for (const person of livingPeople()) influenceFaith(person, 5, "smelling impossible blossoms");
+  for (const person of livingPeople()) influenceFaith(person, 7, "smelling impossible blossoms");
   addLog("A sweet scent spreads; hungry people seek fruit more eagerly.", "good");
   draw();
   renderUi();
@@ -649,7 +657,13 @@ function cleanseArea(center, radius) {
       }
     }
   }
-  for (const person of livingPeople()) if (distance(person, center) <= radius) person.rot = clamp(person.rot - 24, 0, 100);
+  for (const person of livingPeople()) {
+    if (distance(person, center) <= radius) {
+      person.rot = clamp(person.rot - 28, 0, 100);
+      person.fear = clamp(person.fear - 18, 0, 100);
+      influenceFaith(person, 4, "rot was cleansed nearby");
+    }
+  }
 }
 
 function cleanseRot() {
@@ -707,6 +721,18 @@ function drawPeople() {
   for (const person of state.people.filter((item) => item.alive)) {
     const px = person.x * tileSize + tileSize / 2;
     const py = person.y * tileSize + tileSize / 2;
+    if (person.allegiance === "player") {
+      ctx.fillStyle = "rgba(240, 188, 84, 0.35)";
+      ctx.beginPath();
+      ctx.arc(px, py, 12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (person.allegiance === "fiend") {
+      ctx.fillStyle = "rgba(179, 91, 214, 0.38)";
+      ctx.beginPath();
+      ctx.arc(px, py, 12, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.fillStyle = speciesColors[person.species];
     ctx.beginPath();
     ctx.arc(px, py, person.id === state.selectedId ? 8 : 6, 0, Math.PI * 2);
@@ -780,14 +806,38 @@ function meter(label, value, type) {
 
 function personHtml(person) {
   const allegiance = person.allegiance === "player" ? "Your follower" : person.allegiance === "fiend" ? "Fiend cultist" : "Neutral";
+  const badge = person.allegiance === "player" ? "YOURS" : person.allegiance === "fiend" ? "FIEND" : "NEUTRAL";
   return `
-    <strong>${person.name} the ${person.species}</strong>
+    <strong>${person.name} the ${person.species}<span class="badge ${person.allegiance}">${badge}</span></strong>
     <div>${person.personality} | ${person.alive ? person.action : "dead"} | ${allegiance}</div>
     ${meter("Hunger", person.hunger, "hunger")}
     ${meter("Health", person.health, "health")}
     ${meter("Faith", person.faith, "faith")}
     ${meter("Rot", person.rot, "rot")}
   `;
+}
+
+function compactPersonHtml(person) {
+  const badge = person.allegiance === "player" ? "YOURS" : person.allegiance === "fiend" ? "FIEND" : "NEUTRAL";
+  return `
+    <strong>${person.name}<span class="badge ${person.allegiance}">${badge}</span></strong>
+    <div>${person.species} | ${person.alive ? person.action : "dead"}</div>
+    <div class="compact-meters">
+      <div class="meter health"><i style="width:${clamp(person.health, 0, 100)}%"></i></div>
+      <div class="meter faith"><i style="width:${clamp(person.faith, 0, 100)}%"></i></div>
+      <div class="meter rot"><i style="width:${clamp(person.rot, 0, 100)}%"></i></div>
+    </div>
+  `;
+}
+
+function sortedPeople() {
+  const order = { player: 0, fiend: 1, neutral: 2 };
+  return [...state.people].sort((a, b) => {
+    const allegianceSort = order[a.allegiance] - order[b.allegiance];
+    if (allegianceSort !== 0) return allegianceSort;
+    if (a.alive !== b.alive) return a.alive ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 function renderUi() {
@@ -798,6 +848,7 @@ function renderUi() {
   ui.divinityLevel.textContent = state.divinity;
   ui.followers.textContent = `${yours} / ${winFollowers}`;
   ui.fiendFollowers.textContent = `${theirs} / ${loseFiendFollowers}`;
+  ui.crisisStatus.textContent = state.event ? state.event.title : "None";
 
   ui.growFruit.disabled = state.faith < 3 || state.ended;
   ui.blessVitality.disabled = state.faith < 5 || state.ended;
@@ -813,8 +864,8 @@ function renderUi() {
   const selected = state.people.find((person) => person.id === state.selectedId);
   ui.selectedPerson.classList.toggle("muted", !selected);
   ui.selectedPerson.innerHTML = selected ? personHtml(selected) : "Click a person on the map.";
-  ui.currentEvent.classList.toggle("muted", !state.event);
-  ui.currentEvent.innerHTML = state.event ? `<strong>${state.event.title}</strong><div>${state.event.text}</div>` : "No crisis right now.";
+  document.querySelector("#eventAlert").classList.toggle("quiet", !state.event);
+  ui.currentEvent.innerHTML = state.event ? `${state.event.title}: ${state.event.text}` : "No crisis right now.";
   ui.threats.innerHTML = `
     <div><strong>Rot Fiend</strong>: ${state.fiend.alive ? `alive, ${state.fiend.faith} faith` : "dead"}</div>
     <div><strong>Monsters</strong>: ${state.monsters.filter((item) => item.alive).length}</div>
@@ -822,9 +873,9 @@ function renderUi() {
     <div><strong>Sickness</strong>: ${state.sicknessTicks > 0 ? `${state.sicknessTicks} days` : "none"}</div>
   `;
 
-  ui.peopleList.innerHTML = state.people.map((person) => `
+  ui.peopleList.innerHTML = sortedPeople().map((person) => `
     <article class="person-row ${person.allegiance}" data-id="${person.id}">
-      ${personHtml(person)}
+      ${compactPersonHtml(person)}
     </article>
   `).join("");
   ui.eventLog.innerHTML = state.log.map((event) => `<li class="${event.tone}">${event.text}</li>`).join("");

@@ -32,7 +32,7 @@ The tribe acts on its own every few seconds. People get hungry, search for food,
 - Random events can cause drought, sickness, beast attacks, rot blooms, or bad omens.
 - The Rot Fiend spoils fruit, spreads rot, steals followers, blesses cultists, and eats creatures.
 
-At 25 stored faith, your divinity rises to level 2 and stronger miracles unlock.
+At 25 total faith earned, your divinity rises to level 2 permanently and stronger miracles unlock.
 
 ## Goal
 

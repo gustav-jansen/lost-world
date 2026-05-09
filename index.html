@@ -34,7 +34,19 @@
             <span>Fiend Cult</span>
             <strong id="fiendFollowers">0 / 8</strong>
           </div>
+          <div>
+            <span>Crisis</span>
+            <strong id="crisisStatus">None</strong>
+          </div>
         </div>
+      </section>
+
+      <section id="eventAlert" class="event-alert quiet">
+        <div>
+          <span>Current Event</span>
+          <strong id="currentEvent">No crisis right now.</strong>
+        </div>
+        <button id="answerEvent" type="button">Answer Event <span id="answerEventCost">0 faith</span></button>
       </section>
 
       <section class="game-layout">
@@ -50,33 +62,27 @@
             <span><i class="monster-dot"></i>Monster</span>
             <span><i class="fiend-dot"></i>Rot Fiend</span>
           </div>
+          <div class="bar-strip">
+            <span><b>Hunger</b> red, high is bad</span>
+            <span><b>Health</b> green, 0 means death</span>
+            <span><b>Faith</b> gold, 45+ can follow you</span>
+            <span><b>Rot</b> purple, 55+ can follow fiend</span>
+          </div>
         </div>
 
         <aside class="side-panel">
           <section class="panel-block">
             <h2>Miracles</h2>
-            <button id="growFruit" type="button">Grow Fruit <span>3 faith</span></button>
-            <button id="blessVitality" type="button">Bless Vitality <span>5 faith</span></button>
-            <button id="sweetScent" type="button">Sweet Scent <span>4 faith</span></button>
-            <button id="greatHarvest" type="button">Great Harvest <span>12 faith, divinity 2</span></button>
-            <button id="cleanseRot" type="button">Cleanse Rot <span>8 faith, divinity 2</span></button>
-            <button id="driveBeast" type="button">Drive Beast Away <span>10 faith, divinity 2</span></button>
-            <button id="lightningFiend" type="button">Lightning Fiend <span>50 faith, divinity 2</span></button>
-            <p class="hint">Select a person, then bless them. Reach 25 stored faith to unlock divinity 2.</p>
-          </section>
-
-          <section class="panel-block">
-            <h2>Current Event</h2>
-            <div id="currentEvent" class="event-card muted">No crisis right now.</div>
-            <button id="answerEvent" type="button">Answer Event <span id="answerEventCost">0 faith</span></button>
-          </section>
-
-          <section class="panel-block">
-            <h2>Bars</h2>
-            <div class="bar-help"><b>Hunger</b><span>Red. High is dangerous.</span></div>
-            <div class="bar-help"><b>Health</b><span>Green. At 0, they die.</span></div>
-            <div class="bar-help"><b>Faith</b><span>Gold. 50+ follows you.</span></div>
-            <div class="bar-help"><b>Rot</b><span>Purple. 50+ follows the fiend.</span></div>
+            <div class="miracle-grid">
+              <button id="growFruit" type="button">Grow Fruit <span>3 faith</span></button>
+              <button id="blessVitality" type="button">Bless Vitality <span>5 faith</span></button>
+              <button id="sweetScent" type="button">Sweet Scent <span>4 faith</span></button>
+              <button id="greatHarvest" type="button">Great Harvest <span>12 faith, divinity 2</span></button>
+              <button id="cleanseRot" type="button">Cleanse Rot <span>8 faith, divinity 2</span></button>
+              <button id="driveBeast" type="button">Drive Beast <span>10 faith, divinity 2</span></button>
+              <button id="lightningFiend" type="button">Lightning Fiend <span>50 faith, divinity 2</span></button>
+            </div>
+            <p class="hint">Select a person, then bless them. Earn 25 total faith to unlock divinity 2 permanently.</p>
           </section>
 
           <section class="panel-block">
