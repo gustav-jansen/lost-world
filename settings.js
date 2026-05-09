@@ -102,10 +102,36 @@ const DEFAULT_GAME_SETTINGS = {
 
   monsters: {
     detectionRange: 7,
+    baseHealth: 70,
     attackDamageMin: 22,
     attackDamageMax: 38,
     attackFearGain: 28,
     attackFaithLoss: 6,
+    fleeFearThreshold: 45,
+    fleeCooldownDays: 4,
+    fearDecayPerDay: 5,
+  },
+
+  speciesCombat: {
+    Human: 8,
+    Elf: 7,
+    Lizardfolk: 10,
+    Troll: 14,
+    Ogre: 16,
+  },
+
+  combat: {
+    defenseRadius: 4,
+    tribeDefenseBonusPerMember: 2,
+    defenderJoinChance: 55,
+    fleeHealthThreshold: 35,
+    monsterFearPerDefense: 8,
+    monsterDamageReductionPerDefender: 4,
+    defenderDamageMin: 5,
+    defenderDamageMax: 14,
+    killMonsterFaithGain: 5,
+    highDefenseMultiplier: 1.3,
+    lowDefenseMultiplier: 0.55,
   },
 
   events: {

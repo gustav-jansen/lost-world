@@ -29,10 +29,12 @@ The tribe acts on its own every few seconds. People get hungry, search for food,
 
 - Animals wander the map and can be sacrificed by your followers for faith.
 - Wild monsters hunt animals and people.
+- People can defend themselves against monsters, especially when tribe members are nearby.
 - Random events can cause drought, sickness, beast attacks, rot blooms, or bad omens.
 - The Rot Fiend spoils fruit, spreads rot, steals followers, blesses cultists, and eats creatures.
 - People can form tribes when enough gather together. Tribes keep members close, can grow, and influence the fiend.
 - Neutral and player tribes deter the fiend based on tribe size. Fiend tribes attract it, but the fiend rarely eats its own tribe.
+- Tribes have a defense value based on members and species. Strong defenses can wound, kill, or drive away monsters.
 
 ## Targeted Miracles
 

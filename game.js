@@ -281,6 +281,9 @@ function spawnMonster() {
     kind: chance(50) ? "Wolf Pack" : "Cave Beast",
     x: pos.x,
     y: pos.y,
+    health: settings.monsters.baseHealth,
+    fear: 0,
+    fleeCooldown: 0,
     alive: true,
   };
 }
@@ -371,6 +374,19 @@ function countFoodNear(center, radius) {
     }
   }
   return food;
+}
+
+function combatSkill(person) {
+  const speciesBase = settings.speciesCombat[person.species] || 8;
+  const personalityBonus = person.personality === "bold" || person.personality === "grim" ? 3 : person.personality === "cautious" || person.personality === "dreamy" ? -2 : 0;
+  const healthBonus = Math.floor(person.health / 25);
+  const fearPenalty = Math.floor(person.fear / 25);
+  return Math.max(1, speciesBase + personalityBonus + healthBonus - fearPenalty);
+}
+
+function tribeDefense(tribe) {
+  const members = tribeMembers(tribe);
+  return members.reduce((sum, person) => sum + combatSkill(person), 0) + members.length * settings.combat.tribeDefenseBonusPerMember;
 }
 
 function updateTribes() {
@@ -594,8 +610,62 @@ function simulateAnimals() {
   }
 }
 
+function defendersFor(target) {
+  const tribe = personTribe(target);
+  const nearby = livingPeople().filter((person) => {
+    if (person.id === target.id) return true;
+    if (distance(person, target) > settings.combat.defenseRadius) return false;
+    if (tribe && person.tribeId === tribe.id) return chance(settings.combat.defenderJoinChance + 20);
+    return chance(settings.combat.defenderJoinChance);
+  });
+  return nearby;
+}
+
+function resolveMonsterAttack(monster, target) {
+  const defenders = defendersFor(target);
+  const tribe = personTribe(target);
+  const defensePower = defenders.reduce((sum, person) => sum + combatSkill(person), 0) + (tribe ? tribeMembers(tribe).length * settings.combat.tribeDefenseBonusPerMember : 0);
+  const monsterDamage = rand(settings.monsters.attackDamageMin, settings.monsters.attackDamageMax);
+  const reducedDamage = Math.max(4, monsterDamage - defenders.length * settings.combat.monsterDamageReductionPerDefender - Math.floor(defensePower / 6));
+  const defenderDamage = defenders.reduce((sum) => sum + rand(settings.combat.defenderDamageMin, settings.combat.defenderDamageMax), 0);
+
+  monster.health = clamp(monster.health - defenderDamage, 0, settings.monsters.baseHealth);
+  monster.fear = clamp(monster.fear + Math.floor(defensePower / settings.combat.monsterFearPerDefense), 0, 100);
+
+  if (monster.health <= 0) {
+    monster.alive = false;
+    target.action = "survived beast attack";
+    gainFaith(settings.combat.killMonsterFaithGain);
+    addLog(`${defenders.length} defenders kill a ${monster.kind.toLowerCase()} near ${target.name}.`, "good");
+    return;
+  }
+
+  if (defensePower >= monsterDamage * settings.combat.highDefenseMultiplier || monster.fear >= settings.monsters.fleeFearThreshold) {
+    monster.fleeCooldown = settings.monsters.fleeCooldownDays;
+    target.action = "rallied defenders";
+    addLog(`${defenders.length} defenders drive off a ${monster.kind.toLowerCase()} before it can maul ${target.name}.`, "good");
+    return;
+  }
+
+  const finalDamage = defensePower >= monsterDamage * settings.combat.lowDefenseMultiplier ? Math.ceil(reducedDamage / 2) : reducedDamage;
+  target.health = clamp(target.health - finalDamage, 0, 100);
+  target.fear = clamp(target.fear + settings.monsters.attackFearGain, 0, 100);
+  influenceFaith(target, -settings.monsters.attackFaithLoss, "being mauled by a beast");
+  target.action = defenders.length > 1 ? "fighting beast" : target.health < settings.combat.fleeHealthThreshold ? "fleeing beast" : "mauled by beast";
+  addLog(`${monster.kind} hits ${target.name} for ${finalDamage} damage despite ${defenders.length} defenders.`, finalDamage > 18 ? "bad" : "");
+  if (target.health <= 0) killPerson(target, `a ${monster.kind.toLowerCase()} attack`);
+}
+
 function simulateMonsters() {
   for (const monster of state.monsters.filter((item) => item.alive)) {
+    monster.fear = Math.max(0, monster.fear - settings.monsters.fearDecayPerDay);
+    monster.fleeCooldown = Math.max(0, monster.fleeCooldown || 0);
+    if (monster.fleeCooldown > 0 || monster.fear >= settings.monsters.fleeFearThreshold) {
+      monster.fleeCooldown = Math.max(monster.fleeCooldown - 1, 0);
+      monster.action = "fleeing defenders";
+      wander(monster);
+      continue;
+    }
     const targetPerson = nearestLiving(monster, livingPeople());
     const targetAnimal = nearestLiving(monster, state.animals);
     const target = targetPerson && (!targetAnimal || targetPerson.score <= targetAnimal.score + 1) ? targetPerson : targetAnimal;
@@ -608,11 +678,7 @@ function simulateMonsters() {
     monster.action = "hunting";
     if (distance(monster, target) === 0) {
       if ("health" in target) {
-        target.health = clamp(target.health - rand(settings.monsters.attackDamageMin, settings.monsters.attackDamageMax), 0, 100);
-        target.fear = clamp(target.fear + settings.monsters.attackFearGain, 0, 100);
-        influenceFaith(target, -settings.monsters.attackFaithLoss, "being mauled by a beast");
-        addLog(`${monster.kind} mauls ${target.name}.`, "bad");
-        if (target.health <= 0) killPerson(target, `a ${monster.kind.toLowerCase()} attack`);
+        resolveMonsterAttack(monster, target);
       } else {
         target.alive = false;
         addLog(`${monster.kind} eats a ${target.kind.toLowerCase()}.`);
@@ -1024,13 +1090,17 @@ function drawAnimals() {
 
 function drawMonsters() {
   for (const monster of state.monsters.filter((item) => item.alive)) {
-    ctx.fillStyle = "#d65d4f";
+    ctx.fillStyle = monster.fleeCooldown > 0 || monster.fear >= settings.monsters.fleeFearThreshold ? "#f09a85" : "#d65d4f";
     ctx.beginPath();
     ctx.moveTo(monster.x * tileSize + 12, monster.y * tileSize + 4);
     ctx.lineTo(monster.x * tileSize + 21, monster.y * tileSize + 20);
     ctx.lineTo(monster.x * tileSize + 3, monster.y * tileSize + 20);
     ctx.closePath();
     ctx.fill();
+    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+    ctx.fillRect(monster.x * tileSize + 3, monster.y * tileSize + 21, 18, 2);
+    ctx.fillStyle = "#b8e385";
+    ctx.fillRect(monster.x * tileSize + 3, monster.y * tileSize + 21, 18 * (monster.health / settings.monsters.baseHealth), 2);
   }
 }
 
@@ -1194,7 +1264,7 @@ function renderTribesList() {
   ui.tribesList.innerHTML = state.tribes.map((tribe) => `
     <article class="tribe-row ${tribe.allegiance}">
       <strong>${tribe.name}<span class="badge ${tribe.allegiance}">${tribe.allegiance.toUpperCase()}</span></strong>
-      <div>${tribeMembers(tribe).length} members | center ${tribe.x},${tribe.y} | spawn ${tribe.spawnCooldown}</div>
+      <div>${tribeMembers(tribe).length} members | defense ${tribeDefense(tribe)} | center ${tribe.x},${tribe.y} | spawn ${tribe.spawnCooldown}</div>
     </article>
   `).join("");
 }
@@ -1227,10 +1297,12 @@ function renderUi() {
   ui.selectedPerson.innerHTML = selected ? personHtml(selected) : "Click a person on the map.";
   document.querySelector("#eventAlert").classList.toggle("quiet", !state.event);
   ui.currentEvent.innerHTML = state.event ? `${state.event.title}: ${state.event.text}` : "No crisis right now.";
+  const nearestMonster = nearestLiving(targetPosition(), state.monsters);
   ui.threats.innerHTML = `
     <div><strong>Rot Fiend</strong>: ${state.fiend.alive ? `alive, ${state.fiend.faith} faith` : "dead"}</div>
     <div><strong>Eat Cooldown</strong>: ${state.fiend.eatCooldown || 0} days</div>
     <div><strong>Monsters</strong>: ${state.monsters.filter((item) => item.alive).length}</div>
+    <div><strong>Nearest Monster</strong>: ${nearestMonster ? `${nearestMonster.kind}, ${nearestMonster.health} health, ${nearestMonster.fear} fear` : "none"}</div>
     <div><strong>Animals</strong>: ${state.animals.filter((item) => item.alive).length}</div>
     <div><strong>Tribes</strong>: ${state.tribes.length}</div>
     <div><strong>Sickness</strong>: ${state.sicknessTicks > 0 ? `${state.sicknessTicks} days` : "none"}</div>
