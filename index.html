@@ -11,7 +11,7 @@
       <section class="hero">
         <div>
           <p class="eyebrow">Prototype 02</p>
-          <h1>Little God: Fruit Domain</h1>
+          <h1 id="domainTitle">Little God: Unknown Domain</h1>
           <p class="intro">
             Keep a larger stone-age tribe alive while a Rot Fiend steals worship,
             spreads sickness, and eats anything it can catch.
@@ -38,6 +38,21 @@
             <span>Crisis</span>
             <strong id="crisisStatus">None</strong>
           </div>
+          <div>
+            <span>Domain</span>
+            <strong id="domainName">Unchosen</strong>
+          </div>
+        </div>
+      </section>
+
+      <section id="domainSelection" class="domain-selection">
+        <div class="domain-draw">
+          <p class="eyebrow">Choose Your Small Domain</p>
+          <h2>Pick one hidden card</h2>
+          <p class="hint">The fiend receives its own random domain in secret. Your card decides your miracle names and divine flavor for this match.</p>
+          <div id="domainCards" class="domain-cards"></div>
+          <div id="domainReveal" class="domain-reveal muted">No card chosen yet.</div>
+          <button id="beginDomain" type="button" disabled>Begin</button>
         </div>
       </section>
 
@@ -144,6 +159,7 @@
     </main>
 
     <script src="settings.js"></script>
+    <script src="domains.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

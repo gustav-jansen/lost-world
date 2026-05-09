@@ -1,20 +1,22 @@
 # Little God Prototype
 
-A browser game prototype about being a weak fruit-domain god watching over a stone-age tribe while a Rot Fiend competes for worship.
+A browser game prototype about being a weak small-domain god watching over a stone-age tribe while a rival fiend competes for worship.
 
 ## How To Play
 
 Open `index.html` in a web browser.
 
-You start with a few faith points. Spend them on miracles:
+At the start of each match, 32 face-down domain cards appear. Pick one card to reveal your god's domain, then begin the match. The fiend receives its own random domain silently.
 
-- `Grow Fruit`: creates food near the tribe and impresses nearby people.
-- `Bless Vitality`: select a person first, then heal and strengthen them.
-- `Sweet Scent`: makes people seek fruit and slightly increases belief.
-- `Great Harvest`: divinity 2 miracle that creates a large amount of fruit.
+Your first four miracle buttons are renamed by your chosen domain, but they share readable effect families such as food, shelter, healing, faith, hiding, monster fear, cleansing, and monster damage. Spend faith on miracles:
+
+- Area miracle: targets the selected map tile.
+- Blessing miracle: often affects the selected person, though some domains use wider effects.
+- Influence miracle: changes belief, fear, hiding, animals, or threats.
+- Great miracle: divinity 2 domain miracle with a stronger effect.
 - `Cleanse Rot`: divinity 2 miracle that removes corruption from people and land.
 - `Drive Beast Away`: divinity 2 miracle that removes one wild monster.
-- `Lightning Fiend`: divinity 2 miracle that costs 50 faith and kills the Rot Fiend.
+- `Lightning Fiend`: divinity 2 miracle that costs 50 faith and kills the fiend.
 
 The tribe acts on its own every few seconds. People get hungry, search for food, eat, rest, pray, sacrifice animals, and may become followers after witnessing enough helpful miracles.
 
@@ -23,7 +25,7 @@ The tribe acts on its own every few seconds. People get hungry, search for food,
 - `Hunger`: red. High is bad. Starving people lose health and faith.
 - `Health`: green. If it reaches 0, the person dies.
 - `Faith`: gold. High faith can make the person follow you.
-- `Rot`: purple. High rot can make the person follow the Rot Fiend.
+- `Rot`: purple. High rot can make the person follow the fiend.
 
 ## Threats
 
@@ -31,7 +33,7 @@ The tribe acts on its own every few seconds. People get hungry, search for food,
 - Wild monsters hunt animals and people.
 - People can defend themselves against monsters, especially when tribe members are nearby.
 - Random events can cause drought, sickness, beast attacks, rot blooms, or bad omens.
-- The Rot Fiend spoils fruit, spreads rot, steals followers, blesses cultists, and eats creatures.
+- The fiend spoils fruit, spreads rot, steals followers, blesses cultists, and eats creatures.
 - People can form tribes when enough gather together. Tribes keep members close, can grow, and influence the fiend.
 - Neutral and player tribes deter the fiend based on tribe size. Fiend tribes attract it, but the fiend rarely eats its own tribe.
 - Tribes have a defense value based on members and species. Strong defenses can wound, kill, or drive away monsters.
@@ -39,7 +41,11 @@ The tribe acts on its own every few seconds. People get hungry, search for food,
 
 ## Targeted Miracles
 
-Click any map tile to set the miracle target. Area miracles such as `Grow Fruit`, `Great Harvest`, `Cleanse Rot`, and some event answers are centered on that target. Clicking a person selects them and also sets the target to their tile.
+Click any map tile to set the miracle target. Area miracles, great miracles, `Cleanse Rot`, and some event answers are centered on that target. Clicking a person selects them and also sets the target to their tile.
+
+## Domains
+
+Current small domains are: Insects, Birds, Livestock, Trees, Fruit, Sea, Night, Rot, Ash, Fire, Wind, Stone, Fish, Art, Hiding, Rain, Dreams, Blood, Bone, Moss, Flowers, Reeds, Clay, Salt, Smoke, Stars, Teeth, Shells, Honey, Echoes, Frost, and Paths.
 
 Once your held faith reaches 25, divinity rises to level 2 permanently and stronger miracles unlock. You can spend the faith afterward without losing divinity 2.
 
@@ -49,9 +55,9 @@ Balance values live in `settings.js` instead of being hidden in the game code. Y
 
 ## Goal
 
-Win by gaining the configured follower target or killing the Rot Fiend.
+Win by gaining the configured follower target or killing the fiend.
 
-Lose if everyone dies or the Rot Fiend gains the configured cult target.
+Lose if everyone dies or the fiend gains the configured cult target.
 
 ## Prototype Notes
 

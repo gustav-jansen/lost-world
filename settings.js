@@ -5,6 +5,20 @@ const DEFAULT_GAME_SETTINGS = {
   loseFiendFollowers: 8,
   tickMs: 1500,
 
+  domains: {
+    fixedPlayerDomainIndex: -1,
+    fixedFiendDomainIndex: -1,
+    cardRevealDelayMs: 250,
+    animalSpawnCount: 4,
+    domainFaithGain: 8,
+    domainFearReduction: 18,
+    domainMonsterFearGain: 24,
+    domainMonsterDamage: 24,
+    domainDefenseFaithGain: 4,
+    domainCombatBlessing: 5,
+    domainHideFearReduction: 10,
+  },
+
   world: {
     initialAnimals: 18,
     initialMonsters: 2,

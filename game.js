@@ -7,6 +7,12 @@ const ui = {
   followers: document.querySelector("#followers"),
   fiendFollowers: document.querySelector("#fiendFollowers"),
   crisisStatus: document.querySelector("#crisisStatus"),
+  domainTitle: document.querySelector("#domainTitle"),
+  domainName: document.querySelector("#domainName"),
+  domainSelection: document.querySelector("#domainSelection"),
+  domainCards: document.querySelector("#domainCards"),
+  domainReveal: document.querySelector("#domainReveal"),
+  beginDomain: document.querySelector("#beginDomain"),
   peopleList: document.querySelector("#peopleList"),
   selectedPerson: document.querySelector("#selectedPerson"),
   eventLog: document.querySelector("#eventLog"),
@@ -33,6 +39,7 @@ const ui = {
 };
 
 const settingsStorageKey = "little-god-settings";
+const domains = globalThis.SMALL_DOMAINS;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -93,6 +100,11 @@ const animalKinds = ["Deer", "Boar", "Bird"];
 const tribeNames = ["Ash Grove", "Stone Rain", "River Tooth", "Amber Root", "Moon Shell", "Thorn Nest"];
 
 const state = {
+  phase: "domainSelection",
+  domain: null,
+  fiendDomain: null,
+  domainCards: [],
+  revealedDomainId: null,
   faith: settings.startingFaith,
   maxFaithHeld: settings.startingFaith,
   divinity2Unlocked: settings.startingFaith >= settings.divinity2FaithThreshold,
@@ -155,6 +167,14 @@ function tribeMembers(tribe) {
 function addLog(text, tone = "") {
   state.log.unshift({ text: `Day ${state.day}: ${text}`, tone });
   state.log = state.log.slice(0, 30);
+}
+
+function currentDomain() {
+  return state.domain || domains[settings.domains.fixedPlayerDomainIndex] || domains[4];
+}
+
+function fiendName() {
+  return state.fiendDomain ? `${state.fiendDomain.name} Fiend` : "Rot Fiend";
 }
 
 function gainFaith(amount) {
@@ -337,11 +357,67 @@ function createFiend() {
     faith: settings.fiend.startingFaith,
     cooldown: settings.fiend.startingCooldown,
     eatCooldown: 0,
-    domain: "Rot",
+    domain: state.fiendDomain?.name || "Rot",
   };
 }
 
+function shuffledDomains() {
+  const cards = [...domains];
+  for (let i = cards.length - 1; i > 0; i -= 1) {
+    const j = rand(0, i);
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+  return cards;
+}
+
+function fixedDomain(index) {
+  return index >= 0 && domains[index] ? domains[index] : null;
+}
+
+function renderDomainCards() {
+  ui.domainCards.innerHTML = state.domainCards.map((domainCard, index) => {
+    const revealed = state.revealedDomainId === domainCard.id;
+    return `
+      <button class="domain-card ${revealed ? "revealed" : ""}" type="button" data-index="${index}" ${state.domain ? "disabled" : ""}>
+        ${revealed ? `<strong>${domainCard.name}</strong><small>${domainCard.description}</small>` : `<strong>?</strong><small>Card ${index + 1}</small>`}
+      </button>
+    `;
+  }).join("");
+  ui.domainReveal.classList.toggle("muted", !state.domain);
+  ui.domainReveal.innerHTML = state.domain ? `<strong>${state.domain.name} Domain</strong>${state.domain.description}` : "No card chosen yet.";
+  ui.beginDomain.disabled = !state.domain;
+}
+
+function chooseDomain(index) {
+  if (state.domain) return;
+  const selected = fixedDomain(settings.domains.fixedPlayerDomainIndex) || state.domainCards[index];
+  state.domain = selected;
+  state.revealedDomainId = selected.id;
+  setTimeout(renderDomainCards, settings.domains.cardRevealDelayMs);
+  renderDomainCards();
+  renderUi();
+}
+
+function beginDomainGame() {
+  if (!state.domain) return;
+  const fixedFiend = fixedDomain(settings.domains.fixedFiendDomainIndex);
+  const fiendOptions = domains.filter((domain) => domain.id !== state.domain.id);
+  state.fiendDomain = fixedFiend || fiendOptions[rand(0, fiendOptions.length - 1)] || domains[0];
+  state.fiend.domain = state.fiendDomain.name;
+  state.phase = "playing";
+  ui.domainSelection.hidden = true;
+  addLog(`A little god of ${state.domain.name.toLowerCase()} wakes over a larger wandering tribe.`, "gold");
+  addLog(`A Fiend of ${state.fiendDomain.name} crawls from the wet dark and begins whispering.`, "bad");
+  draw();
+  renderUi();
+}
+
 function init() {
+  state.phase = "domainSelection";
+  state.domain = null;
+  state.fiendDomain = null;
+  state.domainCards = shuffledDomains();
+  state.revealedDomainId = null;
   state.faith = settings.startingFaith;
   state.maxFaithHeld = settings.startingFaith;
   state.divinity2Unlocked = settings.startingFaith >= settings.divinity2FaithThreshold;
@@ -363,8 +439,8 @@ function init() {
   state.animals = createAnimals();
   state.monsters = createMonsters();
   state.fiend = createFiend();
-  addLog("A fruit spirit wakes over a larger wandering tribe.", "gold");
-  addLog("A Rot Fiend crawls from the wet dark and begins whispering.", "bad");
+  ui.domainSelection.hidden = false;
+  renderDomainCards();
   draw();
   renderUi();
 }
@@ -524,8 +600,8 @@ function updateAllegiance(person) {
   else if (person.faith < settings.people.neutralFaithThreshold && person.rot < settings.people.neutralRotThreshold) person.allegiance = "neutral";
 
   if (previous !== person.allegiance) {
-    if (person.allegiance === "player") addLog(`${person.name} now worships the fruit spirit.`, "gold");
-    if (person.allegiance === "fiend") addLog(`${person.name} kneels to the Rot Fiend.`, "bad");
+    if (person.allegiance === "player") addLog(`${person.name} now worships the ${currentDomain().name.toLowerCase()} spirit.`, "gold");
+    if (person.allegiance === "fiend") addLog(`${person.name} kneels to the ${fiendName()}.`, "bad");
     if (person.allegiance === "neutral" && previous !== "neutral") addLog(`${person.name} loses certainty and becomes neutral.`);
   }
 }
@@ -784,12 +860,12 @@ function simulateFiend() {
     const devourChance = targetTribe?.allegiance === "fiend" ? settings.fiend.ownTribeDevourChance : settings.fiend.devourChance;
     if (!chance(devourChance)) return;
     if ("health" in target) {
-      killPerson(target, "being devoured by the Rot Fiend");
+      killPerson(target, `being devoured by the ${fiendName()}`);
       fiend.faith += target.allegiance === "fiend" ? settings.fiend.devourFaithFromFollower : settings.fiend.devourFaithFromOther;
     } else {
       target.alive = false;
       fiend.faith += settings.fiend.animalDevourFaith;
-      addLog("The Rot Fiend swallows an animal whole.", "bad");
+      addLog(`The ${fiendName()} swallows an animal whole.`, "bad");
     }
     fiend.eatCooldown = settings.fiend.eatCooldownDays;
     return;
@@ -810,16 +886,16 @@ function simulateFiend() {
         spoiled += 1;
       }
     }
-    addLog(`The Rot Fiend spoils ${spoiled} fruit patches.`, "bad");
+    addLog(`The ${fiendName()} spoils ${spoiled} fruit patches.`, "bad");
   } else if (miracle === 2) {
     const victims = people.sort((a, b) => distance(fiend, a) - distance(fiend, b)).slice(0, settings.fiend.whisperVictims);
     for (const victim of victims) influenceRot(victim, rand(settings.fiend.whisperRotMin, settings.fiend.whisperRotMax), "the fiend whispered decay");
-    addLog("The Rot Fiend whispers decay into mortal dreams.", "bad");
+    addLog(`The ${fiendName()} whispers decay into mortal dreams.`, "bad");
   } else {
     const cultist = fiendFollowers()[0] || people[rand(0, people.length - 1)];
     influenceRot(cultist, settings.fiend.rotBlessingGain, "a rot blessing took root");
     cultist.health = clamp(cultist.health + settings.fiend.rotBlessingHealthGain, 0, 100);
-    addLog(`The Rot Fiend blesses ${cultist.name} with a wet black crown.`, "bad");
+    addLog(`The ${fiendName()} blesses ${cultist.name} with a wet black crown.`, "bad");
   }
 }
 
@@ -862,7 +938,7 @@ function answerEvent() {
   }
   if (event.type === "drought") growFruitNear(targetPosition(), 14, 3);
   if (event.type === "badOmen") for (const person of livingPeople()) influenceFaith(person, settings.events.badOmenAnswerFaithGain, "a god answered the omen");
-  addLog(`You answer the ${event.title.toLowerCase()} with fruit-domain power.`, "good");
+  addLog(`You answer the ${event.title.toLowerCase()} with ${currentDomain().name.toLowerCase()}-domain power.`, "good");
   state.event = null;
   draw();
   renderUi();
@@ -880,21 +956,21 @@ function checkEnd() {
   const theirs = fiendFollowers().length;
   if (!state.fiend.alive) {
     state.ended = true;
-    addLog("Victory: lightning splits the Rot Fiend and the tribe remembers your name.", "gold");
+    addLog(`Victory: the ${fiendName()} falls and the tribe remembers your name.`, "gold");
   } else if (yours >= settings.winFollowers) {
     state.ended = true;
-    addLog("Victory: the tribe becomes an orchard cult strong enough to resist the fiend.", "gold");
+    addLog(`Victory: the tribe becomes a ${currentDomain().name.toLowerCase()} cult strong enough to resist the fiend.`, "gold");
   } else if (alive === 0) {
     state.ended = true;
     addLog("Defeat: no living voices remain to worship anything.", "bad");
   } else if (theirs >= settings.loseFiendFollowers) {
     state.ended = true;
-    addLog("Defeat: the Rot Fiend claims enough worshippers to drown your cult.", "bad");
+    addLog(`Defeat: the ${fiendName()} claims enough worshippers to drown your cult.`, "bad");
   }
 }
 
 function tick() {
-  if (state.paused || state.ended) return;
+  if (state.phase !== "playing" || state.paused || state.ended) return;
   state.day += 1;
   if (state.scentTicks > 0) state.scentTicks -= 1;
   if (state.sicknessTicks > 0) state.sicknessTicks -= 1;
@@ -940,46 +1016,180 @@ function growFruitNear(center, count, faithGain) {
   return grown;
 }
 
+function spawnAnimalsNear(center, count) {
+  let spawned = 0;
+  for (let i = 0; i < count; i += 1) {
+    const pos = {
+      x: clamp(center.x + rand(-3, 3), 0, cols - 1),
+      y: clamp(center.y + rand(-3, 3), 0, rows - 1),
+    };
+    if (!isLand(pos)) continue;
+    state.animals.push({
+      id: state.animals.length + 1,
+      kind: animalKinds[rand(0, animalKinds.length - 1)],
+      x: pos.x,
+      y: pos.y,
+      alive: true,
+    });
+    spawned += 1;
+  }
+  return spawned;
+}
+
+function raiseForestNear(center, count, faithGain) {
+  let raised = 0;
+  for (let i = 0; i < count; i += 1) {
+    const x = clamp(center.x + rand(-4, 4), 0, cols - 1);
+    const y = clamp(center.y + rand(-4, 4), 0, rows - 1);
+    const tile = state.terrain[y][x];
+    if (tile.type === "water") continue;
+    tile.type = "forest";
+    tile.food = clamp(tile.food + rand(1, 3), 0, 8);
+    tile.rot = clamp(tile.rot - 2, 0, 10);
+    raised += 1;
+  }
+  for (const person of peopleNear(center, settings.miracles.growFruitRadius)) influenceFaith(person, faithGain, "witnessing sudden shelter");
+  return raised;
+}
+
+function scareMonsterNear(center, amount) {
+  const monster = nearestLiving(center, state.monsters);
+  if (!monster) return null;
+  monster.fear = clamp(monster.fear + amount, 0, 100);
+  if (monster.fear >= settings.monsters.fleeFearThreshold) monster.fleeCooldown = settings.monsters.fleeCooldownDays;
+  return monster;
+}
+
+function damageMonsterNear(center, amount) {
+  const monster = nearestLiving(center, state.monsters);
+  if (!monster) return null;
+  monster.health = clamp(monster.health - amount, 0, settings.monsters.baseHealth);
+  monster.fear = clamp(monster.fear + Math.floor(amount / 2), 0, 100);
+  if (monster.health <= 0) {
+    monster.alive = false;
+    gainFaith(settings.combat.killMonsterFaithGain);
+  }
+  return monster;
+}
+
+function applyDomainEffect(effect, mode, label) {
+  const center = targetPosition();
+  const nearby = peopleNear(center, mode === "great" ? 8 : settings.miracles.growFruitRadius);
+  const selected = state.people.find((candidate) => candidate.id === state.selectedId && candidate.alive);
+  const power = mode === "great" ? 2 : 1;
+
+  if (effect === "food") {
+    const grown = growFruitNear(center, power === 2 ? settings.miracles.greatHarvestPatches : settings.miracles.growFruitPatches, power === 2 ? settings.miracles.greatHarvestFaithGain : settings.miracles.growFruitFaithGain);
+    addLog(`${label} creates ${grown} food patches.`, power === 2 ? "gold" : "good");
+    return;
+  }
+  if (effect === "animals") {
+    const spawned = spawnAnimalsNear(center, settings.domains.animalSpawnCount * power);
+    for (const person of nearby) influenceFaith(person, settings.miracles.growFruitFaithGain * power, `witnessing ${label.toLowerCase()}`);
+    addLog(`${label} calls ${spawned} animals into the world.`, power === 2 ? "gold" : "good");
+    return;
+  }
+  if (effect === "forest") {
+    const raised = raiseForestNear(center, power === 2 ? settings.miracles.greatHarvestPatches : settings.miracles.growFruitPatches, settings.miracles.growFruitFaithGain * power);
+    addLog(`${label} raises ${raised} sheltering growths.`, power === 2 ? "gold" : "good");
+    return;
+  }
+  if (effect === "heal" || effect === "combat") {
+    if (!selected) {
+      addLog(`Choose a living person before using ${label}.`, "bad");
+      return;
+    }
+    selected.health = clamp(selected.health + settings.miracles.blessHealthGain * power, 0, 100);
+    selected.hunger = clamp(selected.hunger - settings.miracles.blessHungerReduction, 0, 100);
+    selected.rot = clamp(selected.rot - settings.miracles.blessRotReduction, 0, 100);
+    selected.blessed = settings.miracles.blessTicks + (effect === "combat" ? settings.domains.domainCombatBlessing : 0);
+    influenceFaith(selected, settings.miracles.blessFaithGain * power, `receiving ${label.toLowerCase()}`);
+    addLog(`${label} blesses ${selected.name}.`, "good");
+    return;
+  }
+  if (effect === "faith") {
+    for (const person of livingPeople()) influenceFaith(person, settings.domains.domainFaithGain * power, `witnessing ${label.toLowerCase()}`);
+    addLog(`${label} moves through every watching heart.`, power === 2 ? "gold" : "good");
+    return;
+  }
+  if (effect === "fear") {
+    for (const person of livingPeople()) person.fear = clamp(person.fear - settings.domains.domainFearReduction * power, 0, 100);
+    addLog(`${label} calms mortal fear.`, "good");
+    return;
+  }
+  if (effect === "monsterFear") {
+    const monster = scareMonsterNear(center, settings.domains.domainMonsterFearGain * power);
+    addLog(monster ? `${label} terrifies a ${monster.kind.toLowerCase()}.` : `${label} finds no monster to frighten.`, monster ? "good" : "");
+    return;
+  }
+  if (effect === "cleanse") {
+    cleanseArea(center, power === 2 ? settings.miracles.cleanseRadius : 5);
+    addLog(`${label} cleanses corruption from land and souls.`, "good");
+    return;
+  }
+  if (effect === "hide") {
+    for (const person of nearby) {
+      person.fear = clamp(person.fear - settings.domains.domainHideFearReduction * power, 0, 100);
+      influenceFaith(person, settings.miracles.sweetScentFaithGain * power, `being hidden by ${label.toLowerCase()}`);
+    }
+    state.scentTicks = Math.max(state.scentTicks, settings.miracles.sweetScentTicks);
+    addLog(`${label} hides nearby people from hungry eyes.`, "good");
+    return;
+  }
+  if (effect === "damageMonster") {
+    const monster = damageMonsterNear(center, settings.domains.domainMonsterDamage * power);
+    addLog(monster ? `${label} wounds a ${monster.kind.toLowerCase()}.` : `${label} finds no monster to wound.`, monster ? "good" : "");
+    return;
+  }
+  if (effect === "defense") {
+    for (const person of nearby) influenceFaith(person, settings.domains.domainDefenseFaithGain * power, `sheltered by ${label.toLowerCase()}`);
+    const monster = scareMonsterNear(center, Math.floor(settings.domains.domainMonsterFearGain * power / 2));
+    addLog(monster ? `${label} fortifies the tribe and unsettles a ${monster.kind.toLowerCase()}.` : `${label} fortifies nearby people.`, "good");
+  }
+}
+
+function effectNeedsPerson(effect) {
+  return effect === "heal" || effect === "combat";
+}
+
 function growFruit() {
   if (!spendFaith(settings.miracles.growFruitCost)) return;
-  const center = targetPosition();
-  const grown = growFruitNear(center, settings.miracles.growFruitPatches, settings.miracles.growFruitFaithGain);
-  addLog(`You grow ${grown} patches of miraculous fruit.`, "good");
+  const miracle = currentDomain().miracles.area;
+  applyDomainEffect(miracle.effect, "area", miracle.label);
   draw();
   renderUi();
 }
 
 function blessVitality() {
-  if (!state.selectedId) {
-    addLog("Choose a living person before blessing vitality.", "bad");
+  const miracle = currentDomain().miracles.blessing;
+  if (effectNeedsPerson(miracle.effect) && !state.selectedId) {
+    addLog(`Choose a living person before using ${miracle.label}.`, "bad");
     renderUi();
     return;
   }
-  const person = state.people.find((candidate) => candidate.id === state.selectedId && candidate.alive);
-  if (!person || !spendFaith(settings.miracles.blessVitalityCost)) return;
-  person.health = clamp(person.health + settings.miracles.blessHealthGain, 0, 100);
-  person.hunger = clamp(person.hunger - settings.miracles.blessHungerReduction, 0, 100);
-  person.rot = clamp(person.rot - settings.miracles.blessRotReduction, 0, 100);
-  person.blessed = settings.miracles.blessTicks;
-  influenceFaith(person, settings.miracles.blessFaithGain, "feeling divine sweetness in their blood");
-  addLog(`You bless ${person.name} with fruit vitality.`, "good");
+  if (!spendFaith(settings.miracles.blessVitalityCost)) return;
+  applyDomainEffect(miracle.effect, "blessing", miracle.label);
   draw();
   renderUi();
 }
 
 function sweetScent() {
   if (!spendFaith(settings.miracles.sweetScentCost)) return;
-  state.scentTicks = settings.miracles.sweetScentTicks;
-  for (const person of livingPeople()) influenceFaith(person, settings.miracles.sweetScentFaithGain, "smelling impossible blossoms");
-  addLog("A sweet scent spreads; hungry people seek fruit more eagerly.", "good");
+  const miracle = currentDomain().miracles.influence;
+  applyDomainEffect(miracle.effect, "influence", miracle.label);
   draw();
   renderUi();
 }
 
 function greatHarvest() {
+  const miracle = currentDomain().miracles.great;
+  if (effectNeedsPerson(miracle.effect) && !state.selectedId) {
+    addLog(`Choose a living person before using ${miracle.label}.`, "bad");
+    renderUi();
+    return;
+  }
   if (state.divinity < 2 || !spendFaith(settings.miracles.greatHarvestCost)) return;
-  const grown = growFruitNear(targetPosition(), settings.miracles.greatHarvestPatches, settings.miracles.greatHarvestFaithGain);
-  addLog(`Great Harvest floods the land with ${grown} fruit patches.`, "gold");
+  applyDomainEffect(miracle.effect, "great", miracle.label);
   draw();
   renderUi();
 }
@@ -1288,10 +1498,11 @@ function resetSettings() {
 }
 
 function renderMiracleLabels() {
-  ui.growFruit.innerHTML = `Grow Fruit <span>${settings.miracles.growFruitCost} faith</span>`;
-  ui.blessVitality.innerHTML = `Bless Vitality <span>${settings.miracles.blessVitalityCost} faith</span>`;
-  ui.sweetScent.innerHTML = `Sweet Scent <span>${settings.miracles.sweetScentCost} faith</span>`;
-  ui.greatHarvest.innerHTML = `Great Harvest <span>${settings.miracles.greatHarvestCost} faith, divinity 2</span>`;
+  const domain = state.domain;
+  ui.growFruit.innerHTML = `${domain?.miracles.area.label || "Choose Domain"} <span>${settings.miracles.growFruitCost} faith</span>`;
+  ui.blessVitality.innerHTML = `${domain?.miracles.blessing.label || "Choose Domain"} <span>${settings.miracles.blessVitalityCost} faith</span>`;
+  ui.sweetScent.innerHTML = `${domain?.miracles.influence.label || "Choose Domain"} <span>${settings.miracles.sweetScentCost} faith</span>`;
+  ui.greatHarvest.innerHTML = `${domain?.miracles.great.label || "Choose Domain"} <span>${settings.miracles.greatHarvestCost} faith, divinity 2</span>`;
   ui.cleanseRot.innerHTML = `Cleanse Rot <span>${settings.miracles.cleanseRotCost} faith, divinity 2</span>`;
   ui.driveBeast.innerHTML = `Drive Beast <span>${settings.miracles.driveBeastCost} faith, divinity 2</span>`;
   ui.lightningFiend.innerHTML = `Lightning Fiend <span>${settings.miracles.lightningFiendCost} faith, divinity 2</span>`;
@@ -1315,6 +1526,9 @@ function renderUi() {
   renderMiracleLabels();
   const yours = playerFollowers().length;
   const theirs = fiendFollowers().length;
+  const notPlaying = state.phase !== "playing";
+  ui.domainTitle.textContent = state.domain ? `Little God: ${state.domain.name} Domain` : "Little God: Unknown Domain";
+  ui.domainName.textContent = state.domain ? state.domain.name : "Unchosen";
   ui.faithPoints.textContent = state.faith;
   ui.divinityLevel.textContent = state.divinity;
   ui.followers.textContent = `${yours} / ${settings.winFollowers}`;
@@ -1322,14 +1536,14 @@ function renderUi() {
   ui.crisisStatus.textContent = state.event ? state.event.title : "None";
   ui.miracleTarget.textContent = `${state.target.x},${state.target.y}`;
 
-  ui.growFruit.disabled = state.faith < settings.miracles.growFruitCost || state.ended;
-  ui.blessVitality.disabled = state.faith < settings.miracles.blessVitalityCost || state.ended;
-  ui.sweetScent.disabled = state.faith < settings.miracles.sweetScentCost || state.ended;
-  ui.greatHarvest.disabled = state.divinity < 2 || state.faith < settings.miracles.greatHarvestCost || state.ended;
-  ui.cleanseRot.disabled = state.divinity < 2 || state.faith < settings.miracles.cleanseRotCost || state.ended;
-  ui.driveBeast.disabled = state.divinity < 2 || state.faith < settings.miracles.driveBeastCost || state.ended;
-  ui.lightningFiend.disabled = state.divinity < 2 || state.faith < settings.miracles.lightningFiendCost || !state.fiend.alive || state.ended;
-  ui.answerEvent.disabled = !state.event || state.faith < (state.event?.cost || 0) || state.ended;
+  ui.growFruit.disabled = notPlaying || state.faith < settings.miracles.growFruitCost || state.ended;
+  ui.blessVitality.disabled = notPlaying || state.faith < settings.miracles.blessVitalityCost || state.ended;
+  ui.sweetScent.disabled = notPlaying || state.faith < settings.miracles.sweetScentCost || state.ended;
+  ui.greatHarvest.disabled = notPlaying || state.divinity < 2 || state.faith < settings.miracles.greatHarvestCost || state.ended;
+  ui.cleanseRot.disabled = notPlaying || state.divinity < 2 || state.faith < settings.miracles.cleanseRotCost || state.ended;
+  ui.driveBeast.disabled = notPlaying || state.divinity < 2 || state.faith < settings.miracles.driveBeastCost || state.ended;
+  ui.lightningFiend.disabled = notPlaying || state.divinity < 2 || state.faith < settings.miracles.lightningFiendCost || !state.fiend.alive || state.ended;
+  ui.answerEvent.disabled = notPlaying || !state.event || state.faith < (state.event?.cost || 0) || state.ended;
   ui.answerEventCost.textContent = `${state.event?.cost || 0} faith`;
   ui.pauseToggle.textContent = state.paused ? "Resume" : "Pause";
 
@@ -1340,7 +1554,8 @@ function renderUi() {
   ui.currentEvent.innerHTML = state.event ? `${state.event.title}: ${state.event.text}` : "No crisis right now.";
   const nearestMonster = nearestLiving(targetPosition(), state.monsters);
   ui.threats.innerHTML = `
-    <div><strong>Rot Fiend</strong>: ${state.fiend.alive ? `alive, ${state.fiend.faith} faith` : "dead"}</div>
+    <div><strong>${fiendName()}</strong>: ${state.fiend.alive ? `alive, ${state.fiend.faith} faith` : "dead"}</div>
+    <div><strong>Fiend Domain</strong>: ${state.fiendDomain ? state.fiendDomain.name : "hidden"}</div>
     <div><strong>Eat Cooldown</strong>: ${state.fiend.eatCooldown || 0} days</div>
     <div><strong>Monsters</strong>: ${state.monsters.filter((item) => item.alive).length}</div>
     <div><strong>Nearest Monster</strong>: ${nearestMonster ? `${nearestMonster.kind}, ${nearestMonster.health} health, ${nearestMonster.fear} fear` : "none"}</div>
@@ -1359,6 +1574,7 @@ function renderUi() {
 }
 
 canvas.addEventListener("click", (event) => {
+  if (state.phase !== "playing") return;
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
@@ -1374,12 +1590,21 @@ canvas.addEventListener("click", (event) => {
 });
 
 ui.peopleList.addEventListener("click", (event) => {
+  if (state.phase !== "playing") return;
   const row = event.target.closest(".person-row");
   if (!row) return;
   state.selectedId = Number(row.dataset.id);
   draw();
   renderUi();
 });
+
+ui.domainCards.addEventListener("click", (event) => {
+  const card = event.target.closest(".domain-card");
+  if (!card) return;
+  chooseDomain(Number(card.dataset.index));
+});
+
+ui.beginDomain.addEventListener("click", beginDomainGame);
 
 ui.growFruit.addEventListener("click", growFruit);
 ui.blessVitality.addEventListener("click", blessVitality);
