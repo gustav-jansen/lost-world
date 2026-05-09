@@ -10,11 +10,11 @@
     <main class="shell">
       <section class="hero">
         <div>
-          <p class="eyebrow">Prototype 01</p>
+          <p class="eyebrow">Prototype 02</p>
           <h1>Little God: Fruit Domain</h1>
           <p class="intro">
-            Keep a stone-age tribe alive and earn worship through small miracles.
-            Win when 5 people become followers.
+            Keep a larger stone-age tribe alive while a Rot Fiend steals worship,
+            spreads sickness, and eats anything it can catch.
           </p>
         </div>
         <div class="status-card">
@@ -28,20 +28,27 @@
           </div>
           <div>
             <span>Followers</span>
-            <strong id="followers">0 / 5</strong>
+            <strong id="followers">0 / 10</strong>
+          </div>
+          <div>
+            <span>Fiend Cult</span>
+            <strong id="fiendFollowers">0 / 8</strong>
           </div>
         </div>
       </section>
 
       <section class="game-layout">
         <div class="world-panel">
-          <canvas id="world" width="720" height="520" aria-label="Game world"></canvas>
+          <canvas id="world" width="720" height="504" aria-label="Game world"></canvas>
           <div class="legend">
             <span><i class="tile grass"></i>Grass</span>
             <span><i class="tile forest"></i>Forest</span>
             <span><i class="tile water"></i>Water</span>
             <span><i class="tile fruit"></i>Fruit</span>
             <span><i class="person-dot"></i>Person</span>
+            <span><i class="animal-dot"></i>Animal</span>
+            <span><i class="monster-dot"></i>Monster</span>
+            <span><i class="fiend-dot"></i>Rot Fiend</span>
           </div>
         </div>
 
@@ -51,12 +58,35 @@
             <button id="growFruit" type="button">Grow Fruit <span>3 faith</span></button>
             <button id="blessVitality" type="button">Bless Vitality <span>5 faith</span></button>
             <button id="sweetScent" type="button">Sweet Scent <span>4 faith</span></button>
-            <p class="hint">Select a person, then bless them. Other miracles affect the tribe's area.</p>
+            <button id="greatHarvest" type="button">Great Harvest <span>12 faith, divinity 2</span></button>
+            <button id="cleanseRot" type="button">Cleanse Rot <span>8 faith, divinity 2</span></button>
+            <button id="driveBeast" type="button">Drive Beast Away <span>10 faith, divinity 2</span></button>
+            <button id="lightningFiend" type="button">Lightning Fiend <span>50 faith, divinity 2</span></button>
+            <p class="hint">Select a person, then bless them. Reach 25 stored faith to unlock divinity 2.</p>
+          </section>
+
+          <section class="panel-block">
+            <h2>Current Event</h2>
+            <div id="currentEvent" class="event-card muted">No crisis right now.</div>
+            <button id="answerEvent" type="button">Answer Event <span id="answerEventCost">0 faith</span></button>
+          </section>
+
+          <section class="panel-block">
+            <h2>Bars</h2>
+            <div class="bar-help"><b>Hunger</b><span>Red. High is dangerous.</span></div>
+            <div class="bar-help"><b>Health</b><span>Green. At 0, they die.</span></div>
+            <div class="bar-help"><b>Faith</b><span>Gold. 50+ follows you.</span></div>
+            <div class="bar-help"><b>Rot</b><span>Purple. 50+ follows the fiend.</span></div>
           </section>
 
           <section class="panel-block">
             <h2>Selected Person</h2>
             <div id="selectedPerson" class="person-card muted">Click a person on the map.</div>
+          </section>
+
+          <section class="panel-block">
+            <h2>Threats</h2>
+            <div id="threats" class="threat-card"></div>
           </section>
 
           <section class="panel-block">

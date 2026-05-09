@@ -8,6 +8,7 @@
   --gold: #f0bc54;
   --green: #84b85f;
   --danger: #d76e5b;
+  --rot: #b35bd6;
   --line: rgba(245, 234, 211, 0.14);
 }
 
@@ -117,9 +118,9 @@ h2 {
 
 .status-card {
   display: grid;
-  grid-template-columns: repeat(3, minmax(5rem, 1fr));
+  grid-template-columns: repeat(4, minmax(5rem, 1fr));
   gap: 0.65rem;
-  min-width: min(100%, 23rem);
+  min-width: min(100%, 30rem);
 }
 
 .status-card div {
@@ -146,7 +147,7 @@ h2 {
 
 .game-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 1rem;
   margin-top: 1rem;
   padding: 1rem;
@@ -182,7 +183,10 @@ canvas {
 }
 
 .tile,
-.person-dot {
+.person-dot,
+.animal-dot,
+.monster-dot,
+.fiend-dot {
   width: 0.8rem;
   height: 0.8rem;
   border-radius: 0.2rem;
@@ -193,6 +197,9 @@ canvas {
 .water { background: #254e6f; }
 .fruit { background: #a9a646; }
 .person-dot { background: #f7e0a1; border-radius: 50%; }
+.animal-dot { background: #d8c78e; }
+.monster-dot { background: #d65d4f; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.fiend-dot { background: var(--rot); border-radius: 50%; }
 
 .side-panel {
   display: grid;
@@ -219,7 +226,9 @@ canvas {
 }
 
 .person-card,
-.person-row {
+.person-row,
+.event-card,
+.threat-card {
   border-radius: 0.8rem;
   padding: 0.75rem;
   background: rgba(245, 234, 211, 0.07);
@@ -231,9 +240,20 @@ canvas {
   margin-bottom: 0.2rem;
 }
 
+.meter-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .meter {
   height: 0.35rem;
-  margin-top: 0.35rem;
+  margin-top: 0.15rem;
   overflow: hidden;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.1);
@@ -245,8 +265,23 @@ canvas {
   background: var(--green);
 }
 
+.meter.health i { background: var(--green); }
 .meter.hunger i { background: var(--danger); }
 .meter.faith i { background: var(--gold); }
+.meter.rot i { background: var(--rot); }
+
+.bar-help {
+  display: grid;
+  grid-template-columns: 4.8rem 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.bar-help b {
+  color: var(--text);
+}
 
 .people-list {
   display: grid;
@@ -260,8 +295,28 @@ canvas {
   font-size: 0.84rem;
 }
 
-.person-row.follower {
+.person-row.player {
   outline: 1px solid rgba(240, 188, 84, 0.45);
+}
+
+.person-row.fiend {
+  outline: 1px solid rgba(179, 91, 214, 0.55);
+}
+
+.person-row.neutral {
+  outline: 1px solid rgba(245, 234, 211, 0.08);
+}
+
+.event-card,
+.threat-card {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.event-card strong,
+.threat-card strong {
+  color: var(--text);
 }
 
 .log-panel {
@@ -311,7 +366,7 @@ ol {
   }
 
   .status-card {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
