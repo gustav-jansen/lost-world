@@ -377,14 +377,7 @@ function fixedDomain(index) {
 function renderDomainCards() {
   ui.domainCards.innerHTML = state.domainCards.map((domainCard, index) => {
     const revealed = state.revealedDomainId === domainCard.id;
-    const midpoint = (state.domainCards.length - 1) / 2;
-    const progress = index / (state.domainCards.length - 1);
-    const theta = Math.PI + progress * Math.PI;
-    const x = (Math.cos(theta) * 32).toFixed(2);
-    const y = (-Math.sin(theta) * 10).toFixed(2);
-    const angle = Math.round(-90 + progress * 180);
-    const zIndex = revealed ? 100 : Math.round(60 - Math.abs(index - midpoint));
-    const style = `--card-x:clamp(-45vw, ${x}rem, 45vw); --card-y:${y}rem; --card-angle:${angle}deg; --card-z:${zIndex}; --domain-color:${domainCard.color};`;
+    const style = `--domain-color:${domainCard.color};`;
     return `
       <button class="domain-card ${revealed ? "revealed" : ""}" type="button" data-index="${index}" style="${style}" ${state.domain ? "disabled" : ""}>
         <span class="card-corner top">${revealed ? domainCard.name.slice(0, 1) : "I"}</span>

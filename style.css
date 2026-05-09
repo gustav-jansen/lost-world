@@ -192,21 +192,23 @@ h2 {
 .domain-cards {
   --card-width: 3.2rem;
   --card-height: 4.85rem;
-  position: relative;
-  height: 18.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 6.8rem;
   margin: 1rem auto 0;
+  padding: 0.9rem;
   border-radius: 1rem;
   background:
-    radial-gradient(ellipse at 50% 15%, rgba(240, 188, 84, 0.16), transparent 58%),
+    radial-gradient(ellipse at 50% 50%, rgba(240, 188, 84, 0.16), transparent 58%),
     linear-gradient(180deg, rgba(245, 234, 211, 0.05), transparent 45%);
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .domain-card {
-  position: absolute;
-  left: 50%;
-  top: 24%;
-  z-index: var(--card-z);
+  flex: 0 0 var(--card-width);
+  position: relative;
   display: block;
   width: var(--card-width);
   height: var(--card-height);
@@ -223,8 +225,7 @@ h2 {
   box-shadow: 0 0.8rem 1.35rem rgba(0, 0, 0, 0.34);
   color: var(--gold);
   text-align: center;
-  transform: translate(-50%, -50%) translate(var(--card-x), var(--card-y)) rotate(var(--card-angle));
-  transform-origin: 50% 120%;
+  transform: none;
   transition: opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
   will-change: transform;
 }
@@ -250,7 +251,7 @@ h2 {
 .domain-card:hover:not(:disabled) {
   box-shadow: 0 1.6rem 2.3rem rgba(0, 0, 0, 0.5), 0 0 1.2rem rgba(240, 188, 84, 0.22);
   filter: brightness(1.12);
-  transform: translate(-50%, -50%) translate(var(--card-x), calc(var(--card-y) - 1.3rem)) rotate(var(--card-angle)) scale(1.08);
+  transform: translateY(-0.75rem) scale(1.08);
 }
 
 .domain-card.revealed {
@@ -260,7 +261,7 @@ h2 {
     radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--domain-color), transparent 45%), transparent 34%),
     linear-gradient(145deg, #f5ead3, #d8bd83 56%, #9b6c36);
   box-shadow: 0 1.6rem 2.2rem rgba(0, 0, 0, 0.58), 0 0 1.6rem color-mix(in srgb, var(--domain-color), transparent 38%);
-  transform: translate(-50%, -50%) translate(var(--card-x), calc(var(--card-y) - 1.6rem)) rotate(var(--card-angle)) scale(1.18);
+  transform: translateY(-0.7rem) scale(1.12);
 }
 
 .domain-card:disabled:not(.revealed) {
@@ -802,7 +803,7 @@ ol {
   .domain-cards {
     --card-width: 2.6rem;
     --card-height: 4rem;
-    height: 15.5rem;
+    min-height: 5.9rem;
   }
 
   .event-alert {
@@ -850,7 +851,7 @@ ol {
   .domain-cards {
     --card-width: 2rem;
     --card-height: 3.2rem;
-    height: 12.5rem;
+    min-height: 5rem;
     margin-inline: -0.35rem;
   }
 
