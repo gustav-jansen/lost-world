@@ -30,6 +30,9 @@ const ui = {
   miracleTarget: document.querySelector("#miracleTarget"),
   growFruit: document.querySelector("#growFruit"),
   blessVitality: document.querySelector("#blessVitality"),
+  blessingTwo: document.querySelector("#blessingTwo"),
+  blessingThree: document.querySelector("#blessingThree"),
+  domainPowers: document.querySelector("#domainPowers"),
   sweetScent: document.querySelector("#sweetScent"),
   greatHarvest: document.querySelector("#greatHarvest"),
   cleanseRot: document.querySelector("#cleanseRot"),
@@ -155,6 +158,29 @@ function distance(a, b) {
 
 function edibleTile(tile) {
   return tile.food > 0 && ["grass", "forest", "fruit", "berries", "mushrooms", "reeds", "flowers"].includes(tile.type);
+}
+
+function createStats(speciesName, personality) {
+  const stats = {
+    strength: rand(settings.people.statMin, settings.people.statMax),
+    intelligence: rand(settings.people.statMin, settings.people.statMax),
+    willpower: rand(settings.people.statMin, settings.people.statMax),
+  };
+  if (speciesName === "Troll" || speciesName === "Ogre") stats.strength += 3;
+  if (speciesName === "Elf") stats.intelligence += 2;
+  if (speciesName === "Lizardfolk") stats.willpower += 2;
+  if (personality === "bold" || personality === "grim") stats.strength += 1;
+  if (personality === "curious" || personality === "dreamy") stats.intelligence += 1;
+  if (personality === "cautious" || personality === "kind") stats.willpower += 1;
+  return stats;
+}
+
+function hasBlessing(person, effect) {
+  return (person.blessings || []).some((blessing) => blessing.effect === effect);
+}
+
+function blessingBonus(person, effect) {
+  return hasBlessing(person, effect) ? settings.domains.statBlessingGain : 0;
 }
 
 function livingPeople() {
@@ -316,11 +342,17 @@ function createPeople() {
     const pos = spawnPositionNear(centers[index % centers.length], spawned);
     spawned.push(pos);
     const name = names[index] || `Noma ${index + 1}`;
+    const personSpecies = species[index % species.length];
+    const personality = personalities[index % personalities.length];
+    const stats = createStats(personSpecies, personality);
     return {
       id: index + 1,
       name,
-      species: species[index % species.length],
-      personality: personalities[index % personalities.length],
+      species: personSpecies,
+      personality,
+      strength: stats.strength,
+      intelligence: stats.intelligence,
+      willpower: stats.willpower,
       x: pos.x,
       y: pos.y,
       hunger: rand(settings.people.startingHungerMin, settings.people.startingHungerMax),
@@ -332,6 +364,7 @@ function createPeople() {
       action: "waking",
       blessed: 0,
       priestBlessed: 0,
+      blessings: [],
       allegiance: "neutral",
       tribeId: null,
       drawX: pos.x,
@@ -343,11 +376,17 @@ function createPeople() {
 function createPersonNear(center, allegiance = "neutral") {
   const id = state.nextPersonId;
   const name = names[id - 1] || `Noma ${id}`;
+  const personSpecies = species[(id - 1) % species.length];
+  const personality = personalities[(id - 1) % personalities.length];
+  const stats = createStats(personSpecies, personality);
   const person = {
     id,
     name,
-    species: species[(id - 1) % species.length],
-    personality: personalities[(id - 1) % personalities.length],
+    species: personSpecies,
+    personality,
+    strength: stats.strength,
+    intelligence: stats.intelligence,
+    willpower: stats.willpower,
     x: clamp(center.x + rand(-2, 2), 0, cols - 1),
     y: clamp(center.y + rand(-2, 2), 0, rows - 1),
     hunger: rand(settings.people.startingHungerMin, settings.people.startingHungerMax),
@@ -359,6 +398,7 @@ function createPersonNear(center, allegiance = "neutral") {
     action: "born into tribe",
     blessed: 0,
     priestBlessed: 0,
+    blessings: [],
     allegiance: "neutral",
     tribeId: null,
     drawX: center.x,
@@ -447,6 +487,7 @@ function renderDomainCards() {
           <span class="card-face">
             <strong>${domainCard.name}</strong>
             <small>${domainCard.description}</small>
+            <small>${domainCard.miracles.area.label}: ${domainCard.miracles.area.explanation}</small>
           </span>
         ` : `
           <span class="card-back">
@@ -458,7 +499,7 @@ function renderDomainCards() {
     `;
   }).join("");
   ui.domainReveal.classList.toggle("muted", !state.domain);
-  ui.domainReveal.innerHTML = state.domain ? `<strong>${state.domain.name} Domain</strong>${state.domain.description}` : "No card chosen yet.";
+  ui.domainReveal.innerHTML = state.domain ? `<strong>${state.domain.name} Domain</strong>${state.domain.description}<br>${state.domain.miracles.area.label}: ${state.domain.miracles.area.explanation}<br>${state.domain.blessings.map((blessing) => `${blessing.label}: ${blessing.explanation}`).join("<br>")}` : "No card chosen yet.";
   ui.beginDomain.disabled = !state.domain;
 }
 
@@ -580,7 +621,9 @@ function combatSkill(person) {
   const personalityBonus = person.personality === "bold" || person.personality === "grim" ? 3 : person.personality === "cautious" || person.personality === "dreamy" ? -2 : 0;
   const healthBonus = Math.floor(person.health / 25);
   const fearPenalty = Math.floor(person.fear / 25);
-  return Math.max(1, speciesBase + personalityBonus + healthBonus - fearPenalty);
+  const statBonus = Math.floor((person.strength + person.willpower) / 4);
+  const blessing = blessingBonus(person, "strength") + blessingBonus(person, "defense");
+  return Math.max(1, speciesBase + personalityBonus + healthBonus + statBonus + blessing - fearPenalty);
 }
 
 function tribeDefense(tribe) {
@@ -701,8 +744,10 @@ function influenceFaith(person, amount, reason) {
 
 function influenceRot(person, amount, reason) {
   const before = person.rot;
-  person.rot = clamp(person.rot + amount, 0, 100);
-  if (amount > 0) person.faith = clamp(person.faith - Math.ceil(amount / 3), 0, 100);
+  const resistance = Math.floor(person.willpower / 4) + blessingBonus(person, "willpower") + blessingBonus(person, "healing");
+  const adjusted = amount > 0 ? Math.max(1, amount - resistance) : amount;
+  person.rot = clamp(person.rot + adjusted, 0, 100);
+  if (adjusted > 0) person.faith = clamp(person.faith - Math.ceil(adjusted / 3), 0, 100);
   updateAllegiance(person);
   if (before < settings.people.fiendRotThreshold && person.rot >= settings.people.fiendRotThreshold && person.allegiance === "fiend") {
     addLog(`${person.name} turns rotten after ${reason}.`, "bad");
@@ -726,14 +771,15 @@ function killPerson(person, reason) {
 }
 
 function spreadBeliefFrom(person) {
-  if (person.allegiance === "player" && chance(settings.player.faithSpreadChance + (person.id === state.priestId ? 25 : 0))) {
+  if (person.allegiance === "player" && chance(settings.player.faithSpreadChance + Math.floor(person.intelligence / 2) + blessingBonus(person, "faithSpread") * 5 + (person.id === state.priestId ? 25 : 0))) {
     const tribe = personTribe(person);
     const listeners = livingPeople().filter((candidate) => candidate.id !== person.id && distance(candidate, person) <= settings.player.faithSpreadRadius);
     const target = listeners[rand(0, listeners.length - 1)];
     if (target) {
       const sameTribe = tribe && target.tribeId === tribe.id ? 2 : 0;
       const priest = person.id === state.priestId ? settings.priest.faithSpreadBonus : 0;
-      influenceFaith(target, settings.player.faithSpreadAmount + sameTribe + priest, `${person.name} spoke of you`);
+      const voice = blessingBonus(person, "faithSpread") + Math.floor(person.intelligence / 5);
+      influenceFaith(target, settings.player.faithSpreadAmount + sameTribe + priest + voice, `${person.name} spoke of you`);
       person.action = person.id === state.priestId ? "preaching" : "sharing faith";
       return true;
     }
@@ -772,6 +818,11 @@ function simulatePerson(person) {
   if (tile.rot > 0) influenceRot(person, settings.people.rotTerrainGain, "walking through rot");
   if (state.sicknessTicks > 0 && chance(settings.people.sicknessDamageChance)) person.health = clamp(person.health - rand(settings.people.sicknessDamageMin, settings.people.sicknessDamageMax), 0, 100);
   applyPriestBlessing(person);
+  if (hasBlessing(person, "healing")) {
+    person.health = clamp(person.health + 2, 0, 100);
+    person.rot = clamp(person.rot - 1, 0, 100);
+  }
+  if (hasBlessing(person, "willpower")) person.fear = clamp(person.fear - 1, 0, 100);
   if (person.blessed > 0) {
     person.blessed -= 1;
     person.health = clamp(person.health + 4, 0, 100);
@@ -808,7 +859,8 @@ function simulatePerson(person) {
 
   if (person.hunger > settings.people.hungerSearchThreshold) {
     const animal = nearestLiving(person, state.animals);
-    if (animal && animal.score <= 1) {
+    const huntingReach = 1 + (hasBlessing(person, "forage") || person.strength >= 12 ? 1 : 0);
+    if (animal && animal.score <= huntingReach && chance(45 + person.strength * 4 + blessingBonus(person, "strength") * 8)) {
       animal.alive = false;
       person.hunger = clamp(person.hunger - rand(35, 55), 0, 100);
       person.health = clamp(person.health + rand(2, 8), 0, 100);
@@ -831,7 +883,10 @@ function simulatePerson(person) {
   if (person.hunger > settings.people.hungerSearchThreshold || state.scentTicks > 0) {
     const food = nearestEdible(person);
     person.action = food ? (food.animal ? "hunting" : "foraging") : "searching hungry";
-    food ? moveToward(person, food) : wander(person);
+    if (food) {
+      moveToward(person, food);
+      if (hasBlessing(person, "speed") && chance(35)) moveToward(person, food);
+    } else wander(person);
     return;
   }
 
@@ -857,7 +912,10 @@ function simulatePerson(person) {
 
   person.action = chance(35) ? "telling stories" : "wandering";
   if (person.action === "wandering") {
-    if (tribe && distance(person, tribe) > settings.tribes.stayRadius) moveToward(person, tribe);
+    if (tribe && distance(person, tribe) > settings.tribes.stayRadius) {
+      moveToward(person, tribe);
+      if (hasBlessing(person, "speed") && chance(35)) moveToward(person, tribe);
+    }
     else if (tribe && chance(55)) moveToward(person, { x: tribe.homeX + rand(-settings.tribes.stayRadius, settings.tribes.stayRadius), y: tribe.homeY + rand(-settings.tribes.stayRadius, settings.tribes.stayRadius) });
     else wander(person);
   }
@@ -1328,6 +1386,38 @@ function effectNeedsPerson(effect) {
   return effect === "heal" || effect === "combat";
 }
 
+function applyDomainBlessing(index) {
+  const domain = currentDomain();
+  const blessing = domain.blessings[index];
+  const person = state.people.find((candidate) => candidate.id === state.selectedId && candidate.alive);
+  if (!blessing || !person) {
+    addLog("Choose a living person before giving a blessing.", "bad");
+    renderUi();
+    return;
+  }
+  if (hasBlessing(person, blessing.effect)) {
+    addLog(`${person.name} already carries ${blessing.label}.`, "bad");
+    renderUi();
+    return;
+  }
+  if (!spendFaith(settings.domains.blessingCost)) return;
+  person.blessings.push({ ...blessing, domainId: domain.id });
+  if (blessing.effect === "strength") person.strength += settings.domains.statBlessingGain;
+  if (blessing.effect === "intelligence") person.intelligence += settings.domains.statBlessingGain;
+  if (blessing.effect === "willpower") person.willpower += settings.domains.statBlessingGain;
+  if (blessing.effect === "healing") {
+    person.health = clamp(person.health + 18, 0, 100);
+    person.rot = clamp(person.rot - 10, 0, 100);
+  }
+  if (blessing.effect === "forage") person.hunger = clamp(person.hunger - 25, 0, 100);
+  if (blessing.effect === "defense") person.blessed = Math.max(person.blessed, 3);
+  if (blessing.effect === "stealth" || blessing.effect === "speed") person.fear = clamp(person.fear - 15, 0, 100);
+  influenceFaith(person, 10 + person.willpower, `receiving ${blessing.label}`);
+  addLog(`${person.name} receives the permanent blessing ${blessing.label}.`, "gold");
+  draw();
+  renderUi();
+}
+
 function growFruit() {
   if (!spendFaith(settings.miracles.growFruitCost)) return;
   const miracle = currentDomain().miracles.area;
@@ -1337,16 +1427,15 @@ function growFruit() {
 }
 
 function blessVitality() {
-  const miracle = currentDomain().miracles.blessing;
-  if (effectNeedsPerson(miracle.effect) && !state.selectedId) {
-    addLog(`Choose a living person before using ${miracle.label}.`, "bad");
-    renderUi();
-    return;
-  }
-  if (!spendFaith(settings.miracles.blessVitalityCost)) return;
-  applyDomainEffect(miracle.effect, "blessing", miracle.label);
-  draw();
-  renderUi();
+  applyDomainBlessing(0);
+}
+
+function blessingTwo() {
+  applyDomainBlessing(1);
+}
+
+function blessingThree() {
+  applyDomainBlessing(2);
 }
 
 function sweetScent() {
@@ -1485,6 +1574,56 @@ function drawTarget() {
   ctx.stroke();
 }
 
+function drawPolygon(cx, cy, radius, sides, rotation = -Math.PI / 2, fill = true) {
+  ctx.beginPath();
+  for (let i = 0; i < sides; i += 1) {
+    const angle = rotation + (Math.PI * 2 * i) / sides;
+    const x = cx + Math.cos(angle) * radius;
+    const y = cy + Math.sin(angle) * radius;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  fill ? ctx.fill() : ctx.stroke();
+}
+
+function drawSpeciesShape(person, px, py, radius) {
+  ctx.fillStyle = speciesColors[person.species];
+  if (person.species === "Human") {
+    ctx.beginPath();
+    ctx.arc(px, py, radius, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (person.species === "Elf") {
+    drawPolygon(px, py, radius + 1, 4, 0);
+  } else if (person.species === "Lizardfolk") {
+    drawPolygon(px, py, radius + 2, 3, -Math.PI / 2);
+  } else if (person.species === "Troll") {
+    ctx.fillRect(px - radius, py - radius, radius * 2, radius * 2);
+  } else {
+    ctx.save();
+    ctx.scale(1.25, 1);
+    drawPolygon(px / 1.25, py, radius + 1, 6, Math.PI / 6);
+    ctx.restore();
+  }
+}
+
+function drawAnimalShape(animal) {
+  const px = animal.drawX * tileSize + tileSize / 2;
+  const py = animal.drawY * tileSize + tileSize / 2;
+  ctx.fillStyle = "#d8c78e";
+  if (animal.kind === "Deer") drawPolygon(px, py, 5, 4, 0);
+  else if (animal.kind === "Boar") ctx.fillRect(px - 6, py - 4, 12, 8);
+  else {
+    ctx.beginPath();
+    ctx.moveTo(px - 6, py);
+    ctx.lineTo(px, py - 4);
+    ctx.lineTo(px + 6, py);
+    ctx.lineTo(px, py + 4);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
 function drawPeople() {
   for (const person of state.people.filter((item) => item.alive)) {
     smoothEntity(person);
@@ -1502,10 +1641,7 @@ function drawPeople() {
       ctx.arc(px, py, 12, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = speciesColors[person.species];
-    ctx.beginPath();
-    ctx.arc(px, py, person.id === state.selectedId ? 8 : 6, 0, Math.PI * 2);
-    ctx.fill();
+    drawSpeciesShape(person, px, py, person.id === state.selectedId ? 8 : 6);
     if (person.allegiance === "player") {
       ctx.strokeStyle = playerColor();
       ctx.lineWidth = 2;
@@ -1539,8 +1675,7 @@ function drawPeople() {
 function drawAnimals() {
   for (const animal of state.animals.filter((item) => item.alive)) {
     smoothEntity(animal);
-    ctx.fillStyle = "#d8c78e";
-    ctx.fillRect(animal.drawX * tileSize + 5, animal.drawY * tileSize + 5, 8, 8);
+    drawAnimalShape(animal);
   }
 }
 
@@ -1548,12 +1683,15 @@ function drawMonsters() {
   for (const monster of state.monsters.filter((item) => item.alive)) {
     smoothEntity(monster);
     ctx.fillStyle = monster.fleeCooldown > 0 || monster.fear >= settings.monsters.fleeFearThreshold ? "#f09a85" : "#d65d4f";
-    ctx.beginPath();
-    ctx.moveTo(monster.drawX * tileSize + 9, monster.drawY * tileSize + 3);
-    ctx.lineTo(monster.drawX * tileSize + 16, monster.drawY * tileSize + 16);
-    ctx.lineTo(monster.drawX * tileSize + 2, monster.drawY * tileSize + 16);
-    ctx.closePath();
-    ctx.fill();
+    const px = monster.drawX * tileSize + tileSize / 2;
+    const py = monster.drawY * tileSize + tileSize / 2;
+    if (monster.kind === "Wolf Pack") {
+      drawPolygon(px - 4, py + 2, 6, 3);
+      drawPolygon(px + 4, py + 2, 6, 3);
+      drawPolygon(px, py - 4, 6, 3);
+    } else {
+      drawPolygon(px, py, 10, 5, -Math.PI / 2);
+    }
     ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
     ctx.fillRect(monster.drawX * tileSize + 2, monster.drawY * tileSize + 17, 14, 2);
     ctx.fillStyle = "#b8e385";
@@ -1568,7 +1706,15 @@ function drawFiend() {
   const py = state.fiend.drawY * tileSize + tileSize / 2;
   ctx.fillStyle = fiendColor();
   ctx.beginPath();
-  ctx.arc(px, py, 12, 0, Math.PI * 2);
+  for (let i = 0; i < 9; i += 1) {
+    const radius = i % 2 === 0 ? 13 : 8;
+    const angle = -Math.PI / 2 + (Math.PI * 2 * i) / 9;
+    const x = px + Math.cos(angle) * radius;
+    const y = py + Math.sin(angle) * radius;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
   ctx.fill();
   ctx.strokeStyle = "#171016";
   ctx.lineWidth = 3;
@@ -1607,6 +1753,8 @@ function personHtml(person) {
     <div>${person.id === state.priestId ? `Priest of ${currentDomain().name}` : "Not a priest"}</div>
     <div>${person.personality} | ${person.alive ? person.action : "dead"} | ${allegiance}</div>
     <div>Tribe: ${tribe ? tribe.name : "None"}</div>
+    <div>Stats: STR ${person.strength} | INT ${person.intelligence} | WIL ${person.willpower}</div>
+    <div>Blessings: ${person.blessings?.length ? person.blessings.map((blessing) => blessing.label).join(", ") : "None"}</div>
     ${meter("Hunger", person.hunger, "hunger")}
     ${meter("Health", person.health, "health")}
     ${meter("Faith", person.faith, "faith")}
@@ -1618,7 +1766,8 @@ function compactPersonHtml(person) {
   const badge = person.allegiance === "player" ? "YOURS" : person.allegiance === "fiend" ? "FIEND" : "NEUTRAL";
   return `
     <strong>${person.name}${person.id === state.priestId ? " *" : ""}<span class="badge ${person.allegiance}">${badge}</span></strong>
-    <div>${person.species} | ${person.alive ? person.action : "dead"}</div>
+    <div>${person.species} | ${person.alive ? person.action : "dead"} | STR ${person.strength} INT ${person.intelligence} WIL ${person.willpower}</div>
+    <div>Blessings: ${person.blessings?.length || 0}</div>
     <div class="compact-meters">
       <div class="meter health"><i style="width:${clamp(person.health, 0, 100)}%"></i></div>
       <div class="meter faith"><i style="width:${clamp(person.faith, 0, 100)}%"></i></div>
@@ -1714,13 +1863,41 @@ function resetSettings() {
 function renderMiracleLabels() {
   const domain = state.domain;
   ui.growFruit.innerHTML = `${domain?.miracles.area.label || "Choose Domain"} <span>${settings.miracles.growFruitCost} faith</span>`;
-  ui.blessVitality.innerHTML = `${domain?.miracles.blessing.label || "Choose Domain"} <span>${settings.miracles.blessVitalityCost} faith</span>`;
+  const blessings = domain?.blessings || [];
+  ui.blessVitality.innerHTML = `${blessings[0]?.label || "Choose Domain"} <span>${settings.domains.blessingCost} faith</span>`;
+  ui.blessingTwo.innerHTML = `${blessings[1]?.label || "Choose Domain"} <span>${settings.domains.blessingCost} faith</span>`;
+  ui.blessingThree.innerHTML = `${blessings[2]?.label || "Choose Domain"} <span>${settings.domains.blessingCost} faith</span>`;
+  ui.blessVitality.title = blessings[0]?.explanation || "";
+  ui.blessingTwo.title = blessings[1]?.explanation || "";
+  ui.blessingThree.title = blessings[2]?.explanation || "";
+  ui.growFruit.title = domain?.miracles.area.explanation || "";
+  ui.sweetScent.title = domain?.miracles.influence.explanation || "";
+  ui.greatHarvest.title = domain?.miracles.great.explanation || "";
   ui.designatePriest.innerHTML = `Designate Priest <span>free, death costs ${settings.priest.deathFaithCost}</span>`;
   ui.sweetScent.innerHTML = `${domain?.miracles.influence.label || "Choose Domain"} <span>${settings.miracles.sweetScentCost} faith</span>`;
   ui.greatHarvest.innerHTML = `${domain?.miracles.great.label || "Choose Domain"} <span>${settings.miracles.greatHarvestCost} faith, divinity 2</span>`;
   ui.cleanseRot.innerHTML = `Cleanse Rot <span>${settings.miracles.cleanseRotCost} faith, divinity 2</span>`;
   ui.driveBeast.innerHTML = `Drive Beast <span>${settings.miracles.driveBeastCost} faith, divinity 2</span>`;
   ui.lightningFiend.innerHTML = `Lightning Fiend <span>${settings.miracles.lightningFiendCost} faith, divinity 2</span>`;
+}
+
+function renderDomainPowers() {
+  const domain = state.domain;
+  if (!domain) {
+    ui.domainPowers.innerHTML = "Choose a domain to see miracles and blessings.";
+    return;
+  }
+  ui.domainPowers.innerHTML = `
+    <strong>${domain.name} Domain</strong>
+    <div class="power-list">
+      <b>Miracles</b>
+      <p>${domain.miracles.area.label}: ${domain.miracles.area.explanation}</p>
+      <p>${domain.miracles.influence.label}: ${domain.miracles.influence.explanation}</p>
+      <p>${domain.miracles.great.label}: ${domain.miracles.great.explanation}</p>
+      <b>Permanent Blessings</b>
+      ${domain.blessings.map((blessing) => `<p>${blessing.label}: ${blessing.explanation}</p>`).join("")}
+    </div>
+  `;
 }
 
 function renderTribesList() {
@@ -1739,6 +1916,7 @@ function renderTribesList() {
 function renderUi() {
   checkDivinity();
   renderMiracleLabels();
+  renderDomainPowers();
   const yours = playerFollowers().length;
   const theirs = fiendFollowers().length;
   const notPlaying = state.phase !== "playing";
@@ -1752,7 +1930,11 @@ function renderUi() {
   ui.miracleTarget.textContent = `${state.target.x},${state.target.y}`;
 
   ui.growFruit.disabled = notPlaying || state.faith < settings.miracles.growFruitCost || state.ended;
-  ui.blessVitality.disabled = notPlaying || state.faith < settings.miracles.blessVitalityCost || state.ended;
+  const selectedPerson = state.people.find((person) => person.id === state.selectedId && person.alive);
+  const blessings = state.domain?.blessings || [];
+  ui.blessVitality.disabled = notPlaying || !selectedPerson || state.faith < settings.domains.blessingCost || hasBlessing(selectedPerson, blessings[0]?.effect) || state.ended;
+  ui.blessingTwo.disabled = notPlaying || !selectedPerson || state.faith < settings.domains.blessingCost || hasBlessing(selectedPerson, blessings[1]?.effect) || state.ended;
+  ui.blessingThree.disabled = notPlaying || !selectedPerson || state.faith < settings.domains.blessingCost || hasBlessing(selectedPerson, blessings[2]?.effect) || state.ended;
   ui.designatePriest.disabled = notPlaying || !state.selectedId || state.ended;
   ui.sweetScent.disabled = notPlaying || state.faith < settings.miracles.sweetScentCost || state.ended;
   ui.greatHarvest.disabled = notPlaying || state.divinity < 2 || state.faith < settings.miracles.greatHarvestCost || state.ended;
@@ -1825,6 +2007,8 @@ ui.beginDomain.addEventListener("click", beginDomainGame);
 
 ui.growFruit.addEventListener("click", growFruit);
 ui.blessVitality.addEventListener("click", blessVitality);
+ui.blessingTwo.addEventListener("click", blessingTwo);
+ui.blessingThree.addEventListener("click", blessingThree);
 ui.sweetScent.addEventListener("click", sweetScent);
 ui.greatHarvest.addEventListener("click", greatHarvest);
 ui.cleanseRot.addEventListener("click", cleanseRot);

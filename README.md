@@ -8,7 +8,7 @@ Open `index.html` in a web browser.
 
 At the start of each match, 32 face-down domain cards appear. Pick one card to reveal your god's domain, then begin the match. The fiend receives its own random domain silently.
 
-Your first four miracle buttons are renamed by your chosen domain, but they share readable effect families such as food, shelter, healing, faith, hiding, monster fear, cleansing, and monster damage. Spend faith on miracles:
+Your domain miracle and blessing buttons are renamed by your chosen domain, with readable explanations for what each power does. Spend faith on miracles:
 
 - Area miracle: targets the selected map tile.
 - Blessing miracle: often affects the selected person, though some domains use wider effects.
@@ -46,9 +46,21 @@ Click any map tile to set the miracle target. Area miracles, great miracles, `Cl
 
 ## Blessings And Priests
 
-Miracles affect the world. Blessings affect selected people. You can designate one living follower as your priest for free. A priest receives a domain-flavored ongoing blessing and spreads faith more strongly, but if they die you lose faith.
+Miracles affect the world. Blessings are permanent upgrades for selected people. Each domain has three explained blessings, such as strength, insight, resolve, stealth, foraging, healing, defense, or faith-spreading gifts.
+
+People have stats:
+
+- `Strength`: improves hunting, combat, and defense.
+- `Intelligence`: improves social influence and practical choices.
+- `Willpower`: resists fear, rot, and spiritual pressure.
+
+You can designate one living follower as your priest for free. A priest receives a domain-flavored ongoing blessing and spreads faith more strongly, but if they die you lose faith.
 
 Followers can spread faith by talking to nearby people, especially within their tribe. Fiend cultists can spread rot in the same way.
+
+## Map Shapes
+
+People and creatures use different silhouettes instead of all being circles. Species, animals, monsters, priests, tribe homes, and the fiend have distinct shapes so the map is easier to read at a glance.
 
 ## Domains
 

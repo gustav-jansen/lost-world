@@ -17,6 +17,8 @@ const DEFAULT_GAME_SETTINGS = {
     domainDefenseFaithGain: 4,
     domainCombatBlessing: 5,
     domainHideFearReduction: 10,
+    blessingCost: 6,
+    statBlessingGain: 2,
   },
 
   world: {
@@ -58,6 +60,8 @@ const DEFAULT_GAME_SETTINGS = {
   },
 
   people: {
+    statMin: 3,
+    statMax: 10,
     startingFaithMin: 0,
     startingFaithMax: 18,
     startingRotMin: 0,

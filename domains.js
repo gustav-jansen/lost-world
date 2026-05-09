@@ -40,11 +40,83 @@ function domain(id, name, description, color, areaLabel, blessingLabel, influenc
     description,
     color,
     miracles: {
-      area: { label: areaLabel, effect: areaEffect },
-      blessing: { label: blessingLabel, effect: blessingEffect },
-      influence: { label: influenceLabel, effect: influenceEffect },
-      great: { label: greatLabel, effect: greatEffect },
+      area: { label: areaLabel, effect: areaEffect, explanation: miracleExplanation(areaEffect, areaLabel, name, "area") },
+      blessing: { label: blessingLabel, effect: blessingEffect, explanation: miracleExplanation(blessingEffect, blessingLabel, name, "blessing") },
+      influence: { label: influenceLabel, effect: influenceEffect, explanation: miracleExplanation(influenceEffect, influenceLabel, name, "influence") },
+      great: { label: greatLabel, effect: greatEffect, explanation: miracleExplanation(greatEffect, greatLabel, name, "great") },
     },
+    blessings: blessingsFor(id, name, blessingLabel, blessingEffect),
+  };
+}
+
+function miracleExplanation(effect, label, domainName, mode) {
+  const scale = mode === "great" ? "a powerful" : mode === "area" ? "a targeted" : "a subtle";
+  const explanations = {
+    food: `${label} creates edible ${domainName.toLowerCase()}-touched abundance near the target so people can forage instead of starve.`,
+    animals: `${label} calls living creatures into the world, giving the tribe prey, sacrifice, and signs of ${domainName.toLowerCase()} favor.`,
+    forest: `${label} raises sheltering growth that provides cover, forage, and a visible sign of ${domainName.toLowerCase()} power.`,
+    heal: `${label} restores a chosen person and makes their body more resistant to hunger, rot, and fear.`,
+    combat: `${label} strengthens a chosen person for hunting, defense, and fighting monsters.`,
+    faith: `${label} gives people a story they can repeat, raising faith through wonder and shared meaning.`,
+    fear: `${label} calms fear and steadies people against panic, monsters, and bad omens.`,
+    monsterFear: `${label} frightens nearby monsters and can force them to flee from the tribe.`,
+    cleanse: `${label} washes rot from soil and souls with ${domainName.toLowerCase()} power.`,
+    hide: `${label} conceals people from hungry eyes and makes the tribe harder for threats to read.`,
+    damageMonster: `${label} wounds the nearest monster with ${scale} expression of ${domainName.toLowerCase()} power.`,
+    defense: `${label} fortifies people and territory, making the tribe harder to break.`,
+    paths: `${label} opens safe path terrain, helping people travel, return home, and spread faith without creating food.`,
+  };
+  return explanations[effect] || `${label} expresses the ${domainName} domain in a practical way.`;
+}
+
+function blessingsFor(domainId, domainName, blessingLabel, primaryEffect) {
+  const templates = {
+    combat: ["strength", "willpower", "defense"],
+    heal: ["healing", "willpower", "forage"],
+    faith: ["intelligence", "faithSpread", "willpower"],
+    hide: ["stealth", "speed", "intelligence"],
+    cleanse: ["healing", "willpower", "defense"],
+    defense: ["defense", "strength", "willpower"],
+    food: ["forage", "healing", "intelligence"],
+    animals: ["strength", "forage", "faithSpread"],
+    forest: ["defense", "forage", "healing"],
+    paths: ["speed", "forage", "faithSpread"],
+    monsterFear: ["willpower", "defense", "faithSpread"],
+    fear: ["willpower", "faithSpread", "healing"],
+    damageMonster: ["strength", "willpower", "defense"],
+  };
+  const effects = templates[primaryEffect] || ["strength", "intelligence", "willpower"];
+  return effects.map((effect, index) => blessing(domainId, domainName, blessingLabel, effect, index));
+}
+
+function blessing(domainId, domainName, blessingLabel, effect, index) {
+  const names = {
+    strength: `${domainName} Strength`,
+    intelligence: `${domainName} Insight`,
+    willpower: `${domainName} Resolve`,
+    healing: `${domainName} Mending`,
+    speed: `${domainName} Step`,
+    forage: `${domainName} Forager`,
+    faithSpread: `${domainName} Voice`,
+    stealth: `${domainName} Veil`,
+    defense: `${domainName} Ward`,
+  };
+  const explanations = {
+    strength: `Permanent blessing. Increases strength, improving hunting, combat, and monster defense.`,
+    intelligence: `Permanent blessing. Increases intelligence, improving food choices and faith spread.`,
+    willpower: `Permanent blessing. Increases willpower, improving resistance to fear and rot.`,
+    healing: `Permanent blessing. Grants steady recovery and better resistance to sickness and rot.`,
+    speed: `Permanent blessing. Helps the person move safely, return home, and avoid danger.`,
+    forage: `Permanent blessing. Helps the person find edible plants and animals before starvation becomes dangerous.`,
+    faithSpread: `Permanent blessing. Makes the person better at telling convincing stories about your domain.`,
+    stealth: `Permanent blessing. Makes the person harder for monsters and the fiend to notice.`,
+    defense: `Permanent blessing. Improves tribe defense and courage when threats attack.`,
+  };
+  return {
+    id: `${domainId}-${effect}`,
+    label: index === 0 ? blessingLabel : names[effect],
+    effect,
+    explanation: explanations[effect],
   };
 }
 
