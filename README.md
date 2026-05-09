@@ -31,6 +31,12 @@ The tribe acts on its own every few seconds. People get hungry, search for food,
 - Wild monsters hunt animals and people.
 - Random events can cause drought, sickness, beast attacks, rot blooms, or bad omens.
 - The Rot Fiend spoils fruit, spreads rot, steals followers, blesses cultists, and eats creatures.
+- People can form tribes when enough gather together. Tribes keep members close, can grow, and influence the fiend.
+- Neutral and player tribes deter the fiend based on tribe size. Fiend tribes attract it, but the fiend rarely eats its own tribe.
+
+## Targeted Miracles
+
+Click any map tile to set the miracle target. Area miracles such as `Grow Fruit`, `Great Harvest`, `Cleanse Rot`, and some event answers are centered on that target. Clicking a person selects them and also sets the target to their tile.
 
 Once your held faith reaches 25, divinity rises to level 2 permanently and stronger miracles unlock. You can spend the faith afterward without losing divinity 2.
 

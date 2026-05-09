@@ -65,12 +65,18 @@
             <span><i class="animal-dot"></i>Animal</span>
             <span><i class="monster-dot"></i>Monster</span>
             <span><i class="fiend-dot"></i>Rot Fiend</span>
+            <span><i class="tribe-ring"></i>Tribe</span>
           </div>
           <div class="bar-strip">
             <span><b>Hunger</b> red, high is bad</span>
             <span><b>Health</b> green, 0 means death</span>
             <span><b>Faith</b> gold, high faith can follow you</span>
             <span><b>Rot</b> purple, high rot can follow fiend</span>
+          </div>
+          <div class="target-strip">
+            <strong>Miracle Target:</strong>
+            <span id="miracleTarget">13,10</span>
+            <span>Click a map tile to move target. Click a person to select them and target their tile.</span>
           </div>
         </div>
 
@@ -97,6 +103,11 @@
           <section class="panel-block">
             <h2>Threats</h2>
             <div id="threats" class="threat-card"></div>
+          </section>
+
+          <section class="panel-block">
+            <h2>Tribes</h2>
+            <div id="tribesList" class="tribes-list muted">No tribes yet.</div>
           </section>
 
           <section class="panel-block">

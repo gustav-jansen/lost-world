@@ -20,6 +20,8 @@ const ui = {
   applySettings: document.querySelector("#applySettings"),
   resetSettings: document.querySelector("#resetSettings"),
   threats: document.querySelector("#threats"),
+  tribesList: document.querySelector("#tribesList"),
+  miracleTarget: document.querySelector("#miracleTarget"),
   growFruit: document.querySelector("#growFruit"),
   blessVitality: document.querySelector("#blessVitality"),
   sweetScent: document.querySelector("#sweetScent"),
@@ -88,6 +90,7 @@ const names = [
 const species = ["Human", "Elf", "Lizardfolk", "Troll", "Ogre"];
 const personalities = ["cautious", "curious", "bold", "kind", "skeptical", "dreamy", "grim", "generous"];
 const animalKinds = ["Deer", "Boar", "Bird"];
+const tribeNames = ["Ash Grove", "Stone Rain", "River Tooth", "Amber Root", "Moon Shell", "Thorn Nest"];
 
 const state = {
   faith: settings.startingFaith,
@@ -98,6 +101,9 @@ const state = {
   paused: false,
   ended: false,
   selectedId: null,
+  target: { x: settings.miracles.defaultTargetX, y: settings.miracles.defaultTargetY },
+  nextPersonId: 1,
+  nextTribeId: 1,
   scentTicks: 0,
   sicknessTicks: 0,
   log: [],
@@ -105,6 +111,7 @@ const state = {
   people: [],
   animals: [],
   monsters: [],
+  tribes: [],
   event: null,
   fiend: null,
 };
@@ -137,6 +144,14 @@ function fiendFollowers() {
   return livingPeople().filter((person) => person.allegiance === "fiend");
 }
 
+function personTribe(person) {
+  return state.tribes.find((tribe) => tribe.id === person.tribeId) || null;
+}
+
+function tribeMembers(tribe) {
+  return livingPeople().filter((person) => person.tribeId === tribe.id);
+}
+
 function addLog(text, tone = "") {
   state.log.unshift({ text: `Day ${state.day}: ${text}`, tone });
   state.log = state.log.slice(0, 30);
@@ -154,6 +169,13 @@ function randomLandPosition() {
     if (state.terrain[y]?.[x]?.type !== "water") return { x, y };
   }
   return { x: 10, y: 8 };
+}
+
+function targetPosition() {
+  return {
+    x: clamp(state.target.x, 0, cols - 1),
+    y: clamp(state.target.y, 0, rows - 1),
+  };
 }
 
 function createTerrain() {
@@ -201,7 +223,38 @@ function createPeople() {
     action: "waking",
     blessed: 0,
     allegiance: "neutral",
+    tribeId: null,
   }));
+}
+
+function createPersonNear(center, allegiance = "neutral") {
+  const id = state.nextPersonId;
+  const name = names[id - 1] || `Noma ${id}`;
+  const person = {
+    id,
+    name,
+    species: species[(id - 1) % species.length],
+    personality: personalities[(id - 1) % personalities.length],
+    x: clamp(center.x + rand(-2, 2), 0, cols - 1),
+    y: clamp(center.y + rand(-2, 2), 0, rows - 1),
+    hunger: rand(settings.people.startingHungerMin, settings.people.startingHungerMax),
+    health: rand(settings.people.startingHealthMin, settings.people.startingHealthMax),
+    faith: rand(settings.people.startingFaithMin, settings.people.startingFaithMax) + (allegiance === "player" ? 12 : 0),
+    rot: rand(settings.people.startingRotMin, settings.people.startingRotMax) + (allegiance === "fiend" ? 12 : 0),
+    fear: rand(settings.people.startingFearMin, settings.people.startingFearMax),
+    alive: true,
+    action: "born into tribe",
+    blessed: 0,
+    allegiance: "neutral",
+    tribeId: null,
+  };
+  if (state.terrain[person.y][person.x].type === "water") {
+    const fallback = randomLandPosition();
+    person.x = fallback.x;
+    person.y = fallback.y;
+  }
+  updateAllegiance(person);
+  return person;
 }
 
 function createAnimals() {
@@ -239,6 +292,7 @@ function createFiend() {
     alive: true,
     faith: settings.fiend.startingFaith,
     cooldown: settings.fiend.startingCooldown,
+    eatCooldown: 0,
     domain: "Rot",
   };
 }
@@ -252,10 +306,14 @@ function init() {
   state.paused = false;
   state.ended = false;
   state.selectedId = null;
+  state.target = { x: settings.miracles.defaultTargetX, y: settings.miracles.defaultTargetY };
+  state.nextPersonId = names.length + 1;
+  state.nextTribeId = 1;
   state.scentTicks = 0;
   state.sicknessTicks = 0;
   state.log = [];
   state.event = null;
+  state.tribes = [];
   state.terrain = createTerrain();
   state.people = createPeople();
   state.animals = createAnimals();
@@ -299,6 +357,77 @@ function nearestLiving(source, collection) {
   }
   if (best) best.score = bestScore;
   return best;
+}
+
+function peopleNear(center, radius, people = livingPeople()) {
+  return people.filter((person) => distance(person, center) <= radius);
+}
+
+function countFoodNear(center, radius) {
+  let food = 0;
+  for (let y = Math.max(0, center.y - radius); y <= Math.min(rows - 1, center.y + radius); y += 1) {
+    for (let x = Math.max(0, center.x - radius); x <= Math.min(cols - 1, center.x + radius); x += 1) {
+      if (distance(center, { x, y }) <= radius) food += state.terrain[y][x].food;
+    }
+  }
+  return food;
+}
+
+function updateTribes() {
+  for (const tribe of state.tribes) {
+    const members = tribeMembers(tribe);
+    tribe.memberIds = members.map((person) => person.id);
+    if (members.length === 0) continue;
+    tribe.x = Math.round(members.reduce((sum, person) => sum + person.x, 0) / members.length);
+    tribe.y = Math.round(members.reduce((sum, person) => sum + person.y, 0) / members.length);
+    const playerCount = members.filter((person) => person.allegiance === "player").length;
+    const fiendCount = members.filter((person) => person.allegiance === "fiend").length;
+    tribe.allegiance = playerCount > fiendCount ? "player" : fiendCount > playerCount ? "fiend" : "neutral";
+    tribe.spawnCooldown = Math.max(0, tribe.spawnCooldown - 1);
+  }
+
+  state.tribes = state.tribes.filter((tribe) => tribe.memberIds.length > 0);
+
+  for (const person of livingPeople()) {
+    const tribe = personTribe(person);
+    if (tribe && distance(person, tribe) > settings.tribes.returnRadius + 4) person.tribeId = null;
+  }
+
+  const untribed = livingPeople().filter((person) => !person.tribeId);
+  for (const person of untribed) {
+    if (person.tribeId) continue;
+    const cluster = peopleNear(person, settings.tribes.formationRadius, untribed).filter((candidate) => !candidate.tribeId);
+    if (cluster.length >= settings.tribes.minimumMembers) {
+      const id = state.nextTribeId;
+      state.nextTribeId += 1;
+      const tribe = {
+        id,
+        name: tribeNames[(id - 1) % tribeNames.length],
+        x: Math.round(cluster.reduce((sum, member) => sum + member.x, 0) / cluster.length),
+        y: Math.round(cluster.reduce((sum, member) => sum + member.y, 0) / cluster.length),
+        allegiance: "neutral",
+        memberIds: cluster.map((member) => member.id),
+        spawnCooldown: settings.tribes.spawnCooldownDays,
+      };
+      for (const member of cluster) member.tribeId = id;
+      state.tribes.push(tribe);
+      addLog(`${tribe.name} forms from ${cluster.length} gathered people.`, "gold");
+    }
+  }
+
+  for (const tribe of state.tribes) {
+    const members = tribeMembers(tribe);
+    if (members.length === 0 || members.length >= settings.tribes.maxMembers || tribe.spawnCooldown > 0) continue;
+    const averageHunger = members.reduce((sum, person) => sum + person.hunger, 0) / members.length;
+    if (averageHunger > settings.people.hungerSearchThreshold || countFoodNear(tribe, settings.tribes.stayRadius) < settings.tribes.foodNeededNearby) continue;
+    if (!chance(settings.tribes.spawnChance)) continue;
+    const child = createPersonNear(tribe, tribe.allegiance);
+    child.tribeId = tribe.id;
+    state.people.push(child);
+    state.nextPersonId += 1;
+    tribe.spawnCooldown = settings.tribes.spawnCooldownDays;
+    addLog(`${tribe.name} welcomes ${child.name} into the tribe.`);
+  }
 }
 
 function moveToward(entity, target) {
@@ -400,6 +529,13 @@ function simulatePerson(person) {
     return;
   }
 
+  const tribe = personTribe(person);
+  if (tribe && distance(person, tribe) > settings.tribes.returnRadius) {
+    person.action = "returning to tribe";
+    moveToward(person, tribe);
+    return;
+  }
+
   if (tile.food > 0 && person.hunger > 25) {
     tile.food -= 1;
     person.hunger = clamp(person.hunger - rand(25, 40), 0, 100);
@@ -446,7 +582,10 @@ function simulatePerson(person) {
   }
 
   person.action = chance(35) ? "telling stories" : "wandering";
-  if (person.action === "wandering") wander(person);
+  if (person.action === "wandering") {
+    if (tribe && distance(person, tribe) > settings.tribes.stayRadius) moveToward(person, tribe);
+    else wander(person);
+  }
 }
 
 function simulateAnimals() {
@@ -482,6 +621,34 @@ function simulateMonsters() {
   }
 }
 
+function fiendTargetScore(target) {
+  let score = distance(state.fiend, target);
+  if ("health" in target) {
+    const tribe = personTribe(target);
+    if (tribe) {
+      const members = tribeMembers(tribe).length;
+      if (tribe.allegiance === "fiend") score -= settings.tribes.fiendTribeAttraction;
+      else score += members * settings.tribes.deterrencePerMember;
+    }
+  }
+  return score;
+}
+
+function nearestFiendTarget() {
+  const candidates = [...livingPeople(), ...state.animals.filter((animal) => animal.alive)];
+  let best = null;
+  let bestScore = Infinity;
+  for (const candidate of candidates) {
+    const score = fiendTargetScore(candidate);
+    if (score < bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+  if (best) best.score = Math.max(0, bestScore);
+  return best;
+}
+
 function spreadRotAround(source, radius, strength) {
   for (let y = Math.max(0, source.y - radius); y <= Math.min(rows - 1, source.y + radius); y += 1) {
     for (let x = Math.max(0, source.x - radius); x <= Math.min(cols - 1, source.x + radius); x += 1) {
@@ -498,15 +665,17 @@ function simulateFiend() {
   if (!fiend.alive) return;
 
   fiend.cooldown -= 1;
+  fiend.eatCooldown = Math.max(0, (fiend.eatCooldown || 0) - 1);
   const people = livingPeople();
-  const nearestPerson = nearestLiving(fiend, people);
-  const nearestAnimal = nearestLiving(fiend, state.animals);
-  const target = nearestPerson && (!nearestAnimal || nearestPerson.score <= nearestAnimal.score) ? nearestPerson : nearestAnimal;
+  const target = nearestFiendTarget();
 
   if (target) moveToward(fiend, target);
   if (chance(settings.fiend.rotSpreadChance)) spreadRotAround(fiend, 1, 1);
 
-  if (target && distance(fiend, target) === 0 && chance(settings.fiend.devourChance)) {
+  if (target && distance(fiend, target) === 0 && fiend.eatCooldown <= 0) {
+    const targetTribe = "health" in target ? personTribe(target) : null;
+    const devourChance = targetTribe?.allegiance === "fiend" ? settings.fiend.ownTribeDevourChance : settings.fiend.devourChance;
+    if (!chance(devourChance)) return;
     if ("health" in target) {
       killPerson(target, "being devoured by the Rot Fiend");
       fiend.faith += target.allegiance === "fiend" ? settings.fiend.devourFaithFromFollower : settings.fiend.devourFaithFromOther;
@@ -515,6 +684,7 @@ function simulateFiend() {
       fiend.faith += settings.fiend.animalDevourFaith;
       addLog("The Rot Fiend swallows an animal whole.", "bad");
     }
+    fiend.eatCooldown = settings.fiend.eatCooldownDays;
     return;
   }
 
@@ -578,12 +748,12 @@ function answerEvent() {
   if (!state.event || !spendFaith(state.event.cost)) return;
   const event = state.event;
   if (event.type === "sickness") state.sicknessTicks = 0;
-  if (event.type === "rotBloom") cleanseArea(state.fiend, 8);
+  if (event.type === "rotBloom") cleanseArea(targetPosition(), 8);
   if (event.type === "beast") {
     const monster = state.monsters.find((item) => item.alive);
     if (monster) monster.alive = false;
   }
-  if (event.type === "drought") growFruitNear({ x: 13, y: 10 }, 14, 3);
+  if (event.type === "drought") growFruitNear(targetPosition(), 14, 3);
   if (event.type === "badOmen") for (const person of livingPeople()) influenceFaith(person, settings.events.badOmenAnswerFaithGain, "a god answered the omen");
   addLog(`You answer the ${event.title.toLowerCase()} with fruit-domain power.`, "good");
   state.event = null;
@@ -623,6 +793,7 @@ function tick() {
   if (state.sicknessTicks > 0) state.sicknessTicks -= 1;
 
   for (const person of state.people) simulatePerson(person);
+  updateTribes();
   simulateAnimals();
   simulateMonsters();
   simulateFiend();
@@ -664,8 +835,7 @@ function growFruitNear(center, count, faithGain) {
 
 function growFruit() {
   if (!spendFaith(settings.miracles.growFruitCost)) return;
-  const people = livingPeople();
-  const center = people[rand(0, people.length - 1)] || { x: 13, y: 10 };
+  const center = targetPosition();
   const grown = growFruitNear(center, settings.miracles.growFruitPatches, settings.miracles.growFruitFaithGain);
   addLog(`You grow ${grown} patches of miraculous fruit.`, "good");
   draw();
@@ -701,7 +871,7 @@ function sweetScent() {
 
 function greatHarvest() {
   if (state.divinity < 2 || !spendFaith(settings.miracles.greatHarvestCost)) return;
-  const grown = growFruitNear({ x: 13, y: 10 }, settings.miracles.greatHarvestPatches, settings.miracles.greatHarvestFaithGain);
+  const grown = growFruitNear(targetPosition(), settings.miracles.greatHarvestPatches, settings.miracles.greatHarvestFaithGain);
   addLog(`Great Harvest floods the land with ${grown} fruit patches.`, "gold");
   draw();
   renderUi();
@@ -727,8 +897,7 @@ function cleanseArea(center, radius) {
 
 function cleanseRot() {
   if (state.divinity < 2 || !spendFaith(settings.miracles.cleanseRotCost)) return;
-  const selected = state.people.find((person) => person.id === state.selectedId && person.alive);
-  cleanseArea(selected || { x: 13, y: 10 }, settings.miracles.cleanseRadius);
+  cleanseArea(targetPosition(), settings.miracles.cleanseRadius);
   addLog("You cleanse rot from soil and souls.", "good");
   draw();
   renderUi();
@@ -736,7 +905,7 @@ function cleanseRot() {
 
 function driveBeast() {
   if (state.divinity < 2 || !spendFaith(settings.miracles.driveBeastCost)) return;
-  const monster = nearestLiving({ x: 13, y: 10 }, state.monsters);
+  const monster = nearestLiving(targetPosition(), state.monsters);
   if (monster) {
     const realMonster = state.monsters.find((item) => item.id === monster.id);
     realMonster.alive = false;
@@ -774,6 +943,36 @@ function drawTerrain() {
       }
     }
   }
+}
+
+function drawTribes() {
+  for (const tribe of state.tribes) {
+    const px = tribe.x * tileSize + tileSize / 2;
+    const py = tribe.y * tileSize + tileSize / 2;
+    const members = tribeMembers(tribe).length;
+    ctx.strokeStyle = tribe.allegiance === "player" ? "rgba(240, 188, 84, 0.85)" : tribe.allegiance === "fiend" ? "rgba(179, 91, 214, 0.85)" : "rgba(245, 234, 211, 0.42)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(px, py, Math.max(18, members * 3), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function drawTarget() {
+  const target = targetPosition();
+  const px = target.x * tileSize + tileSize / 2;
+  const py = target.y * tileSize + tileSize / 2;
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(px, py, 10, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(px - 14, py);
+  ctx.lineTo(px + 14, py);
+  ctx.moveTo(px, py - 14);
+  ctx.lineTo(px, py + 14);
+  ctx.stroke();
 }
 
 function drawPeople() {
@@ -850,10 +1049,12 @@ function drawFiend() {
 
 function draw() {
   drawTerrain();
+  drawTribes();
   drawAnimals();
   drawPeople();
   drawMonsters();
   drawFiend();
+  drawTarget();
 }
 
 function meter(label, value, type) {
@@ -866,9 +1067,11 @@ function meter(label, value, type) {
 function personHtml(person) {
   const allegiance = person.allegiance === "player" ? "Your follower" : person.allegiance === "fiend" ? "Fiend cultist" : "Neutral";
   const badge = person.allegiance === "player" ? "YOURS" : person.allegiance === "fiend" ? "FIEND" : "NEUTRAL";
+  const tribe = personTribe(person);
   return `
     <strong>${person.name} the ${person.species}<span class="badge ${person.allegiance}">${badge}</span></strong>
     <div>${person.personality} | ${person.alive ? person.action : "dead"} | ${allegiance}</div>
+    <div>Tribe: ${tribe ? tribe.name : "None"}</div>
     ${meter("Hunger", person.hunger, "hunger")}
     ${meter("Health", person.health, "health")}
     ${meter("Faith", person.faith, "faith")}
@@ -983,6 +1186,19 @@ function renderMiracleLabels() {
   ui.lightningFiend.innerHTML = `Lightning Fiend <span>${settings.miracles.lightningFiendCost} faith, divinity 2</span>`;
 }
 
+function renderTribesList() {
+  if (state.tribes.length === 0) {
+    ui.tribesList.innerHTML = "No tribes yet.";
+    return;
+  }
+  ui.tribesList.innerHTML = state.tribes.map((tribe) => `
+    <article class="tribe-row ${tribe.allegiance}">
+      <strong>${tribe.name}<span class="badge ${tribe.allegiance}">${tribe.allegiance.toUpperCase()}</span></strong>
+      <div>${tribeMembers(tribe).length} members | center ${tribe.x},${tribe.y} | spawn ${tribe.spawnCooldown}</div>
+    </article>
+  `).join("");
+}
+
 function renderUi() {
   checkDivinity();
   renderMiracleLabels();
@@ -993,6 +1209,7 @@ function renderUi() {
   ui.followers.textContent = `${yours} / ${settings.winFollowers}`;
   ui.fiendFollowers.textContent = `${theirs} / ${settings.loseFiendFollowers}`;
   ui.crisisStatus.textContent = state.event ? state.event.title : "None";
+  ui.miracleTarget.textContent = `${state.target.x},${state.target.y}`;
 
   ui.growFruit.disabled = state.faith < settings.miracles.growFruitCost || state.ended;
   ui.blessVitality.disabled = state.faith < settings.miracles.blessVitalityCost || state.ended;
@@ -1012,10 +1229,13 @@ function renderUi() {
   ui.currentEvent.innerHTML = state.event ? `${state.event.title}: ${state.event.text}` : "No crisis right now.";
   ui.threats.innerHTML = `
     <div><strong>Rot Fiend</strong>: ${state.fiend.alive ? `alive, ${state.fiend.faith} faith` : "dead"}</div>
+    <div><strong>Eat Cooldown</strong>: ${state.fiend.eatCooldown || 0} days</div>
     <div><strong>Monsters</strong>: ${state.monsters.filter((item) => item.alive).length}</div>
     <div><strong>Animals</strong>: ${state.animals.filter((item) => item.alive).length}</div>
+    <div><strong>Tribes</strong>: ${state.tribes.length}</div>
     <div><strong>Sickness</strong>: ${state.sicknessTicks > 0 ? `${state.sicknessTicks} days` : "none"}</div>
   `;
+  renderTribesList();
 
   ui.peopleList.innerHTML = sortedPeople().map((person) => `
     <article class="person-row ${person.allegiance}" data-id="${person.id}">
@@ -1031,12 +1251,13 @@ canvas.addEventListener("click", (event) => {
   const scaleY = canvas.height / rect.height;
   const x = Math.floor(((event.clientX - rect.left) * scaleX) / tileSize);
   const y = Math.floor(((event.clientY - rect.top) * scaleY) / tileSize);
+  state.target = { x: clamp(x, 0, cols - 1), y: clamp(y, 0, rows - 1) };
   const person = state.people.find((candidate) => candidate.alive && candidate.x === x && candidate.y === y);
   if (person) {
     state.selectedId = person.id;
-    draw();
-    renderUi();
   }
+  draw();
+  renderUi();
 });
 
 ui.peopleList.addEventListener("click", (event) => {

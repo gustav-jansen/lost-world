@@ -15,6 +15,19 @@ const DEFAULT_GAME_SETTINGS = {
     startingFruitFoodMax: 6,
   },
 
+  tribes: {
+    minimumMembers: 5,
+    formationRadius: 4,
+    stayRadius: 5,
+    returnRadius: 7,
+    deterrencePerMember: 8,
+    fiendTribeAttraction: 12,
+    spawnCooldownDays: 12,
+    spawnChance: 20,
+    maxMembers: 12,
+    foodNeededNearby: 4,
+  },
+
   people: {
     startingFaithMin: 0,
     startingFaithMax: 18,
@@ -65,6 +78,8 @@ const DEFAULT_GAME_SETTINGS = {
     cooldownMax: 5,
     rotSpreadChance: 100,
     devourChance: 45,
+    eatCooldownDays: 4,
+    ownTribeDevourChance: 3,
     devourFaithFromFollower: 1,
     devourFaithFromOther: 3,
     animalDevourFaith: 1,
@@ -111,6 +126,8 @@ const DEFAULT_GAME_SETTINGS = {
   },
 
   miracles: {
+    defaultTargetX: 13,
+    defaultTargetY: 10,
     growFruitCost: 3,
     growFruitPatches: 8,
     growFruitFaithGain: 8,

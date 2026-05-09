@@ -313,7 +313,8 @@ canvas {
   font-size: 0.85rem;
 }
 
-.bar-strip {
+.bar-strip,
+.target-strip {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
@@ -322,14 +323,16 @@ canvas {
   font-size: 0.78rem;
 }
 
-.bar-strip span {
+.bar-strip span,
+.target-strip {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 0.25rem 0.5rem;
   background: rgba(18, 15, 11, 0.45);
 }
 
-.bar-strip b {
+.bar-strip b,
+.target-strip strong {
   color: var(--text);
 }
 
@@ -343,7 +346,8 @@ canvas {
 .person-dot,
 .animal-dot,
 .monster-dot,
-.fiend-dot {
+.fiend-dot,
+.tribe-ring {
   width: 0.8rem;
   height: 0.8rem;
   border-radius: 0.2rem;
@@ -357,6 +361,7 @@ canvas {
 .animal-dot { background: #d8c78e; }
 .monster-dot { background: #d65d4f; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .fiend-dot { background: var(--rot); border-radius: 50%; }
+.tribe-ring { border: 2px solid var(--gold); background: transparent; border-radius: 50%; }
 
 .side-panel {
   display: grid;
@@ -405,7 +410,8 @@ canvas {
 .person-card,
 .person-row,
 .event-card,
-.threat-card {
+.threat-card,
+.tribes-list {
   border-radius: 0.8rem;
   padding: 0.75rem;
   background: rgba(245, 234, 211, 0.07);
@@ -508,6 +514,21 @@ canvas {
 .badge.player { background: rgba(240, 188, 84, 0.25); color: var(--gold); }
 .badge.fiend { background: rgba(179, 91, 214, 0.25); color: #dca4f5; }
 .badge.neutral { color: var(--muted); }
+
+.tribes-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.tribe-row {
+  border-radius: 0.75rem;
+  padding: 0.65rem;
+  background: rgba(245, 234, 211, 0.07);
+}
+
+.tribe-row.player { outline: 1px solid rgba(240, 188, 84, 0.65); }
+.tribe-row.fiend { outline: 1px solid rgba(179, 91, 214, 0.7); }
+.tribe-row.neutral { outline: 1px solid rgba(245, 234, 211, 0.12); }
 
 .compact-meters {
   display: grid;
