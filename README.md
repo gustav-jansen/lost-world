@@ -35,6 +35,7 @@ The tribe acts on its own every few seconds. People get hungry, search for food,
 - People can form tribes when enough gather together. Tribes keep members close, can grow, and influence the fiend.
 - Neutral and player tribes deter the fiend based on tribe size. Fiend tribes attract it, but the fiend rarely eats its own tribe.
 - Tribes have a defense value based on members and species. Strong defenses can wound, kill, or drive away monsters.
+- Starting people spawn in several loose clusters instead of one central blob, so multiple tribes can emerge.
 
 ## Targeted Miracles
 

@@ -13,6 +13,10 @@ const DEFAULT_GAME_SETTINGS = {
     startingGroveFruitChance: 70,
     startingFruitFoodMin: 2,
     startingFruitFoodMax: 6,
+    peopleSpawnClusters: 3,
+    peopleSpawnClusterRadius: 3,
+    peopleSpawnMinDistance: 3,
+    peopleSpawnMargin: 3,
   },
 
   tribes: {

@@ -171,6 +171,41 @@ function randomLandPosition() {
   return { x: 10, y: 8 };
 }
 
+function isLand(pos) {
+  return pos.x >= 0 && pos.x < cols && pos.y >= 0 && pos.y < rows && state.terrain[pos.y]?.[pos.x]?.type !== "water";
+}
+
+function createSpawnCenters() {
+  const margin = settings.world.peopleSpawnMargin;
+  const candidates = [
+    { x: margin + 3, y: margin + 3 },
+    { x: Math.floor(cols / 2), y: rows - margin - 4 },
+    { x: cols - margin - 5, y: Math.floor(rows / 2) },
+    { x: Math.floor(cols / 2), y: margin + 4 },
+    { x: margin + 4, y: rows - margin - 5 },
+  ];
+  return candidates.slice(0, Math.max(1, settings.world.peopleSpawnClusters)).map((candidate) => {
+    if (isLand(candidate)) return candidate;
+    return randomLandPosition();
+  });
+}
+
+function spawnPositionNear(center, existing) {
+  for (let tries = 0; tries < 80; tries += 1) {
+    const pos = {
+      x: clamp(center.x + rand(-settings.world.peopleSpawnClusterRadius, settings.world.peopleSpawnClusterRadius), 0, cols - 1),
+      y: clamp(center.y + rand(-settings.world.peopleSpawnClusterRadius, settings.world.peopleSpawnClusterRadius), 0, rows - 1),
+    };
+    if (!isLand(pos)) continue;
+    if (existing.every((other) => distance(pos, other) >= settings.world.peopleSpawnMinDistance)) return pos;
+  }
+  for (let tries = 0; tries < 80; tries += 1) {
+    const pos = randomLandPosition();
+    if (existing.every((other) => distance(pos, other) >= settings.world.peopleSpawnMinDistance)) return pos;
+  }
+  return randomLandPosition();
+}
+
 function targetPosition() {
   return {
     x: clamp(state.target.x, 0, cols - 1),
@@ -207,24 +242,30 @@ function createTerrain() {
 }
 
 function createPeople() {
-  return names.map((name, index) => ({
-    id: index + 1,
-    name,
-    species: species[index % species.length],
-    personality: personalities[index % personalities.length],
-    x: rand(9, 16),
-    y: rand(7, 13),
-    hunger: rand(settings.people.startingHungerMin, settings.people.startingHungerMax),
-    health: rand(settings.people.startingHealthMin, settings.people.startingHealthMax),
-    faith: rand(settings.people.startingFaithMin, settings.people.startingFaithMax),
-    rot: rand(settings.people.startingRotMin, settings.people.startingRotMax),
-    fear: rand(settings.people.startingFearMin, settings.people.startingFearMax),
-    alive: true,
-    action: "waking",
-    blessed: 0,
-    allegiance: "neutral",
-    tribeId: null,
-  }));
+  const centers = createSpawnCenters();
+  const spawned = [];
+  return names.map((name, index) => {
+    const pos = spawnPositionNear(centers[index % centers.length], spawned);
+    spawned.push(pos);
+    return {
+      id: index + 1,
+      name,
+      species: species[index % species.length],
+      personality: personalities[index % personalities.length],
+      x: pos.x,
+      y: pos.y,
+      hunger: rand(settings.people.startingHungerMin, settings.people.startingHungerMax),
+      health: rand(settings.people.startingHealthMin, settings.people.startingHealthMax),
+      faith: rand(settings.people.startingFaithMin, settings.people.startingFaithMax),
+      rot: rand(settings.people.startingRotMin, settings.people.startingRotMax),
+      fear: rand(settings.people.startingFearMin, settings.people.startingFearMax),
+      alive: true,
+      action: "waking",
+      blessed: 0,
+      allegiance: "neutral",
+      tribeId: null,
+    };
+  });
 }
 
 function createPersonNear(center, allegiance = "neutral") {
