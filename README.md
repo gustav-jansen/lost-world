@@ -22,8 +22,8 @@ The tribe acts on its own every few seconds. People get hungry, search for food,
 
 - `Hunger`: red. High is bad. Starving people lose health and faith.
 - `Health`: green. If it reaches 0, the person dies.
-- `Faith`: gold. At 50+, the person follows you if rot is not stronger.
-- `Rot`: purple. At 50+, the person can become a follower of the Rot Fiend.
+- `Faith`: gold. High faith can make the person follow you.
+- `Rot`: purple. High rot can make the person follow the Rot Fiend.
 
 ## Threats
 
@@ -32,13 +32,17 @@ The tribe acts on its own every few seconds. People get hungry, search for food,
 - Random events can cause drought, sickness, beast attacks, rot blooms, or bad omens.
 - The Rot Fiend spoils fruit, spreads rot, steals followers, blesses cultists, and eats creatures.
 
-At 25 total faith earned, your divinity rises to level 2 permanently and stronger miracles unlock.
+Once your held faith reaches 25, divinity rises to level 2 permanently and stronger miracles unlock. You can spend the faith afterward without losing divinity 2.
+
+## Difficulty Settings
+
+Balance values live in `settings.js` instead of being hidden in the game code. You can also click `Settings` in the browser, edit the values, and apply them to restart the simulation. Browser edits are saved locally.
 
 ## Goal
 
-Win by gaining 10 followers or killing the Rot Fiend.
+Win by gaining the configured follower target or killing the Rot Fiend.
 
-Lose if everyone dies or the Rot Fiend gains 8 followers.
+Lose if everyone dies or the Rot Fiend gains the configured cult target.
 
 ## Prototype Notes
 

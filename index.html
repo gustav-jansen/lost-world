@@ -46,7 +46,11 @@
           <span>Current Event</span>
           <strong id="currentEvent">No crisis right now.</strong>
         </div>
-        <button id="answerEvent" type="button">Answer Event <span id="answerEventCost">0 faith</span></button>
+        <div class="top-actions">
+          <button id="answerEvent" type="button">Answer Event <span id="answerEventCost">0 faith</span></button>
+          <button id="pauseToggle" type="button">Pause</button>
+          <button id="settingsToggle" type="button">Settings</button>
+        </div>
       </section>
 
       <section class="game-layout">
@@ -65,8 +69,8 @@
           <div class="bar-strip">
             <span><b>Hunger</b> red, high is bad</span>
             <span><b>Health</b> green, 0 means death</span>
-            <span><b>Faith</b> gold, 45+ can follow you</span>
-            <span><b>Rot</b> purple, 55+ can follow fiend</span>
+            <span><b>Faith</b> gold, high faith can follow you</span>
+            <span><b>Rot</b> purple, high rot can follow fiend</span>
           </div>
         </div>
 
@@ -82,7 +86,7 @@
               <button id="driveBeast" type="button">Drive Beast <span>10 faith, divinity 2</span></button>
               <button id="lightningFiend" type="button">Lightning Fiend <span>50 faith, divinity 2</span></button>
             </div>
-            <p class="hint">Select a person, then bless them. Earn 25 total faith to unlock divinity 2 permanently.</p>
+            <p class="hint">Select a person, then bless them. Hold 25 faith once to unlock divinity 2 permanently.</p>
           </section>
 
           <section class="panel-block">
@@ -105,12 +109,30 @@
       <section class="log-panel">
         <div class="log-heading">
           <h2>World Log</h2>
-          <button id="pauseToggle" type="button">Pause</button>
         </div>
         <ol id="eventLog"></ol>
       </section>
+
+      <section id="settingsPanel" class="settings-panel" hidden>
+        <div class="settings-dialog">
+          <div class="settings-heading">
+            <div>
+              <p class="eyebrow">Tuning</p>
+              <h2>Difficulty Settings</h2>
+            </div>
+            <button id="closeSettings" type="button">Close</button>
+          </div>
+          <p class="hint">These values are loaded from <code>settings.js</code>. Browser edits are saved locally and apply after a restart.</p>
+          <div id="settingsFields" class="settings-fields"></div>
+          <div class="settings-actions">
+            <button id="applySettings" type="button">Apply And Restart</button>
+            <button id="resetSettings" type="button">Reset Defaults</button>
+          </div>
+        </div>
+      </section>
     </main>
 
+    <script src="settings.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

@@ -13,6 +13,12 @@ const ui = {
   currentEvent: document.querySelector("#currentEvent"),
   answerEvent: document.querySelector("#answerEvent"),
   answerEventCost: document.querySelector("#answerEventCost"),
+  settingsToggle: document.querySelector("#settingsToggle"),
+  settingsPanel: document.querySelector("#settingsPanel"),
+  closeSettings: document.querySelector("#closeSettings"),
+  settingsFields: document.querySelector("#settingsFields"),
+  applySettings: document.querySelector("#applySettings"),
+  resetSettings: document.querySelector("#resetSettings"),
   threats: document.querySelector("#threats"),
   growFruit: document.querySelector("#growFruit"),
   blessVitality: document.querySelector("#blessVitality"),
@@ -24,11 +30,40 @@ const ui = {
   pauseToggle: document.querySelector("#pauseToggle"),
 };
 
+const settingsStorageKey = "little-god-settings";
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function mergeSettings(base, override) {
+  const merged = clone(base);
+  if (!override || typeof override !== "object") return merged;
+  for (const [key, value] of Object.entries(override)) {
+    if (value && typeof value === "object" && !Array.isArray(value) && merged[key]) {
+      merged[key] = mergeSettings(merged[key], value);
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
+function loadSettings() {
+  try {
+    const saved = localStorage.getItem(settingsStorageKey);
+    return mergeSettings(DEFAULT_GAME_SETTINGS, saved ? JSON.parse(saved) : null);
+  } catch {
+    return clone(DEFAULT_GAME_SETTINGS);
+  }
+}
+
+let settings = loadSettings();
+
 const tileSize = 24;
 const cols = Math.floor(canvas.width / tileSize);
 const rows = Math.floor(canvas.height / tileSize);
-const winFollowers = 10;
-const loseFiendFollowers = 8;
+let tickTimer = null;
 
 const terrainColors = {
   grass: "#365d29",
@@ -55,8 +90,9 @@ const personalities = ["cautious", "curious", "bold", "kind", "skeptical", "drea
 const animalKinds = ["Deer", "Boar", "Bird"];
 
 const state = {
-  faith: 10,
-  totalFaithEarned: 10,
+  faith: settings.startingFaith,
+  maxFaithHeld: settings.startingFaith,
+  divinity2Unlocked: settings.startingFaith >= settings.divinity2FaithThreshold,
   divinity: 1,
   day: 1,
   paused: false,
@@ -108,7 +144,6 @@ function addLog(text, tone = "") {
 
 function gainFaith(amount) {
   state.faith += amount;
-  state.totalFaithEarned += amount;
   checkDivinity();
 }
 
@@ -129,8 +164,8 @@ function createTerrain() {
     for (let x = 0; x < cols; x += 1) {
       let tile = "grass";
       if (x > cols - 7 && y > rows - 7) tile = "water";
-      if (chance(16)) tile = "forest";
-      if (chance(6)) tile = "fruit";
+      if (chance(settings.world.forestChance)) tile = "forest";
+      if (chance(settings.world.wildFruitChance)) tile = "fruit";
       row.push({ type: tile, food: tile === "fruit" ? rand(2, 5) : 0, rot: 0 });
     }
     terrain.push(row);
@@ -138,7 +173,11 @@ function createTerrain() {
 
   for (let y = 8; y <= 12; y += 1) {
     for (let x = 11; x <= 15; x += 1) {
-      terrain[y][x] = { type: chance(70) ? "fruit" : "grass", food: rand(2, 6), rot: 0 };
+      terrain[y][x] = {
+        type: chance(settings.world.startingGroveFruitChance) ? "fruit" : "grass",
+        food: rand(settings.world.startingFruitFoodMin, settings.world.startingFruitFoodMax),
+        rot: 0,
+      };
     }
   }
 
@@ -153,11 +192,11 @@ function createPeople() {
     personality: personalities[index % personalities.length],
     x: rand(9, 16),
     y: rand(7, 13),
-    hunger: rand(28, 66),
-    health: rand(70, 100),
-    faith: rand(4, 20),
-    rot: rand(0, 5),
-    fear: rand(0, 20),
+    hunger: rand(settings.people.startingHungerMin, settings.people.startingHungerMax),
+    health: rand(settings.people.startingHealthMin, settings.people.startingHealthMax),
+    faith: rand(settings.people.startingFaithMin, settings.people.startingFaithMax),
+    rot: rand(settings.people.startingRotMin, settings.people.startingRotMax),
+    fear: rand(settings.people.startingFearMin, settings.people.startingFearMax),
     alive: true,
     action: "waking",
     blessed: 0,
@@ -166,7 +205,7 @@ function createPeople() {
 }
 
 function createAnimals() {
-  return Array.from({ length: 18 }, (_, index) => {
+  return Array.from({ length: settings.world.initialAnimals }, (_, index) => {
     const pos = randomLandPosition();
     return {
       id: index + 1,
@@ -179,7 +218,7 @@ function createAnimals() {
 }
 
 function createMonsters() {
-  return [spawnMonster()];
+  return Array.from({ length: settings.world.initialMonsters }, () => spawnMonster());
 }
 
 function spawnMonster() {
@@ -198,13 +237,25 @@ function createFiend() {
     x: cols - 8,
     y: rows - 8,
     alive: true,
-    faith: 4,
-    cooldown: 5,
+    faith: settings.fiend.startingFaith,
+    cooldown: settings.fiend.startingCooldown,
     domain: "Rot",
   };
 }
 
 function init() {
+  state.faith = settings.startingFaith;
+  state.maxFaithHeld = settings.startingFaith;
+  state.divinity2Unlocked = settings.startingFaith >= settings.divinity2FaithThreshold;
+  state.divinity = state.divinity2Unlocked ? 2 : 1;
+  state.day = 1;
+  state.paused = false;
+  state.ended = false;
+  state.selectedId = null;
+  state.scentTicks = 0;
+  state.sicknessTicks = 0;
+  state.log = [];
+  state.event = null;
   state.terrain = createTerrain();
   state.people = createPeople();
   state.animals = createAnimals();
@@ -214,6 +265,12 @@ function init() {
   addLog("A Rot Fiend crawls from the wet dark and begins whispering.", "bad");
   draw();
   renderUi();
+}
+
+function restartGame() {
+  if (tickTimer) clearInterval(tickTimer);
+  init();
+  tickTimer = setInterval(tick, settings.tickMs);
 }
 
 function nearestFood(person) {
@@ -276,9 +333,9 @@ function wander(entity) {
 function updateAllegiance(person) {
   if (!person.alive) return;
   const previous = person.allegiance;
-  if (person.faith >= 45 && person.faith >= person.rot + 5) person.allegiance = "player";
-  else if (person.rot >= 55 && person.rot > person.faith + 5) person.allegiance = "fiend";
-  else if (person.faith < 35 && person.rot < 35) person.allegiance = "neutral";
+  if (person.faith >= settings.people.playerFaithThreshold && person.faith >= person.rot + settings.people.playerFaithRotMargin) person.allegiance = "player";
+  else if (person.rot >= settings.people.fiendRotThreshold && person.rot > person.faith + settings.people.fiendRotFaithMargin) person.allegiance = "fiend";
+  else if (person.faith < settings.people.neutralFaithThreshold && person.rot < settings.people.neutralRotThreshold) person.allegiance = "neutral";
 
   if (previous !== person.allegiance) {
     if (person.allegiance === "player") addLog(`${person.name} now worships the fruit spirit.`, "gold");
@@ -291,7 +348,7 @@ function influenceFaith(person, amount, reason) {
   const before = person.faith;
   person.faith = clamp(person.faith + amount, 0, 100);
   updateAllegiance(person);
-  if (before < 50 && person.faith >= 50 && person.allegiance === "player") {
+  if (before < settings.people.playerFaithThreshold && person.faith >= settings.people.playerFaithThreshold && person.allegiance === "player") {
     addLog(`${person.name} believes after ${reason}.`, "gold");
   }
 }
@@ -301,7 +358,7 @@ function influenceRot(person, amount, reason) {
   person.rot = clamp(person.rot + amount, 0, 100);
   if (amount > 0) person.faith = clamp(person.faith - Math.ceil(amount / 3), 0, 100);
   updateAllegiance(person);
-  if (before < 50 && person.rot >= 50 && person.allegiance === "fiend") {
+  if (before < settings.people.fiendRotThreshold && person.rot >= settings.people.fiendRotThreshold && person.allegiance === "fiend") {
     addLog(`${person.name} turns rotten after ${reason}.`, "bad");
   }
 }
@@ -312,8 +369,8 @@ function killPerson(person, reason) {
   person.action = "dead";
   addLog(`${person.name} died from ${reason}.`, "bad");
   for (const witness of livingPeople().filter((candidate) => distance(candidate, person) <= 4)) {
-    influenceFaith(witness, -5, "witnessing death");
-    witness.fear = clamp(witness.fear + 16, 0, 100);
+    influenceFaith(witness, -settings.player.deathWitnessFaithLoss, "witnessing death");
+    witness.fear = clamp(witness.fear + settings.player.deathWitnessFearGain, 0, 100);
   }
 }
 
@@ -321,21 +378,21 @@ function simulatePerson(person) {
   if (!person.alive) return;
 
   const tile = state.terrain[person.y][person.x];
-  person.hunger = clamp(person.hunger + rand(6, 10), 0, 100);
+  person.hunger = clamp(person.hunger + rand(settings.people.hungerGainMin, settings.people.hungerGainMax), 0, 100);
   person.fear = clamp(person.fear - 2, 0, 100);
-  if (tile.rot > 0) influenceRot(person, 1, "walking through rot");
-  if (state.sicknessTicks > 0 && chance(28)) person.health = clamp(person.health - rand(3, 7), 0, 100);
+  if (tile.rot > 0) influenceRot(person, settings.people.rotTerrainGain, "walking through rot");
+  if (state.sicknessTicks > 0 && chance(settings.people.sicknessDamageChance)) person.health = clamp(person.health - rand(settings.people.sicknessDamageMin, settings.people.sicknessDamageMax), 0, 100);
   if (person.blessed > 0) {
     person.blessed -= 1;
     person.health = clamp(person.health + 4, 0, 100);
     person.rot = clamp(person.rot - 2, 0, 100);
   }
 
-  if (person.hunger >= 86) {
-    person.health = clamp(person.health - rand(6, 12), 0, 100);
+  if (person.hunger >= settings.people.starvationThreshold) {
+    person.health = clamp(person.health - rand(settings.people.starvationDamageMin, settings.people.starvationDamageMax), 0, 100);
     person.action = "starving";
-    influenceFaith(person, -4, "hunger went unanswered");
-    influenceRot(person, 1, "desperation made rot persuasive");
+    influenceFaith(person, -settings.people.starvationFaithLoss, "hunger went unanswered");
+    influenceRot(person, settings.people.starvationRotGain, "desperation made rot persuasive");
   }
 
   if (person.health <= 0) {
@@ -348,42 +405,42 @@ function simulatePerson(person) {
     person.hunger = clamp(person.hunger - rand(25, 40), 0, 100);
     person.health = clamp(person.health + rand(2, 6), 0, 100);
     person.action = "eating fruit";
-    influenceFaith(person, state.scentTicks > 0 ? 10 : 4, "finding fruit");
+    influenceFaith(person, state.scentTicks > 0 ? settings.miracles.sweetScentFruitFaithGain : settings.miracles.fruitFaithGain, "finding fruit");
     return;
   }
 
-  if (person.allegiance === "player" && chance(16)) {
+  if (person.allegiance === "player" && chance(settings.player.sacrificeChance)) {
     const animal = nearestLiving(person, state.animals);
     if (animal && animal.score <= 2) {
       animal.alive = false;
-      gainFaith(rand(4, 8));
+      gainFaith(rand(settings.player.sacrificeFaithMin, settings.player.sacrificeFaithMax));
       person.action = "sacrificing animal";
       addLog(`${person.name} sacrifices a ${animal.kind.toLowerCase()} and grants you faith.`, "gold");
       return;
     }
   }
 
-  if (person.hunger > 50 || state.scentTicks > 0) {
+  if (person.hunger > settings.people.hungerSearchThreshold || state.scentTicks > 0) {
     const food = nearestFood(person);
     person.action = food ? "seeking fruit" : "searching hungry";
     food ? moveToward(person, food) : wander(person);
     return;
   }
 
-  if (person.allegiance === "player" && chance(35)) {
+  if (person.allegiance === "player" && chance(settings.player.prayerChance)) {
     gainFaith(1);
     person.action = "praying";
     return;
   }
 
-  if (person.allegiance === "fiend" && state.fiend.alive && chance(24)) {
+  if (person.allegiance === "fiend" && state.fiend.alive && chance(settings.fiend.cultPrayerChance)) {
     state.fiend.faith += 1;
     person.action = "muttering rot prayers";
     return;
   }
 
-  if (person.health < 52) {
-    person.health = clamp(person.health + rand(3, 7), 0, 100);
+  if (person.health < settings.people.restHealthThreshold) {
+    person.health = clamp(person.health + rand(settings.people.restHealthMin, settings.people.restHealthMax), 0, 100);
     person.action = "resting";
     return;
   }
@@ -394,7 +451,7 @@ function simulatePerson(person) {
 
 function simulateAnimals() {
   for (const animal of state.animals.filter((item) => item.alive)) {
-    if (chance(70)) wander(animal);
+    if (chance(settings.animals.wanderChance)) wander(animal);
   }
 }
 
@@ -403,7 +460,7 @@ function simulateMonsters() {
     const targetPerson = nearestLiving(monster, livingPeople());
     const targetAnimal = nearestLiving(monster, state.animals);
     const target = targetPerson && (!targetAnimal || targetPerson.score <= targetAnimal.score + 1) ? targetPerson : targetAnimal;
-    if (!target || target.score > 7) {
+    if (!target || target.score > settings.monsters.detectionRange) {
       monster.action = "prowling";
       wander(monster);
       continue;
@@ -412,9 +469,9 @@ function simulateMonsters() {
     monster.action = "hunting";
     if (distance(monster, target) === 0) {
       if ("health" in target) {
-        target.health = clamp(target.health - rand(22, 38), 0, 100);
-        target.fear = clamp(target.fear + 28, 0, 100);
-        influenceFaith(target, -6, "being mauled by a beast");
+        target.health = clamp(target.health - rand(settings.monsters.attackDamageMin, settings.monsters.attackDamageMax), 0, 100);
+        target.fear = clamp(target.fear + settings.monsters.attackFearGain, 0, 100);
+        influenceFaith(target, -settings.monsters.attackFaithLoss, "being mauled by a beast");
         addLog(`${monster.kind} mauls ${target.name}.`, "bad");
         if (target.health <= 0) killPerson(target, `a ${monster.kind.toLowerCase()} attack`);
       } else {
@@ -447,56 +504,56 @@ function simulateFiend() {
   const target = nearestPerson && (!nearestAnimal || nearestPerson.score <= nearestAnimal.score) ? nearestPerson : nearestAnimal;
 
   if (target) moveToward(fiend, target);
-  if (chance(50)) spreadRotAround(fiend, 1, 1);
+  if (chance(settings.fiend.rotSpreadChance)) spreadRotAround(fiend, 1, 1);
 
-  if (target && distance(fiend, target) === 0 && chance(25)) {
+  if (target && distance(fiend, target) === 0 && chance(settings.fiend.devourChance)) {
     if ("health" in target) {
       killPerson(target, "being devoured by the Rot Fiend");
-      fiend.faith += target.allegiance === "fiend" ? 1 : 3;
+      fiend.faith += target.allegiance === "fiend" ? settings.fiend.devourFaithFromFollower : settings.fiend.devourFaithFromOther;
     } else {
       target.alive = false;
-      fiend.faith += 1;
+      fiend.faith += settings.fiend.animalDevourFaith;
       addLog("The Rot Fiend swallows an animal whole.", "bad");
     }
     return;
   }
 
   if (fiend.cooldown > 0 || people.length === 0) return;
-  fiend.cooldown = rand(5, 7);
+  fiend.cooldown = rand(settings.fiend.cooldownMin, settings.fiend.cooldownMax);
   const miracle = rand(1, 3);
 
   if (miracle === 1) {
     let spoiled = 0;
-    for (let i = 0; i < 10; i += 1) {
-      const x = clamp(fiend.x + rand(-5, 5), 0, cols - 1);
-      const y = clamp(fiend.y + rand(-5, 5), 0, rows - 1);
+    for (let i = 0; i < settings.fiend.spoilAttempts; i += 1) {
+      const x = clamp(fiend.x + rand(-settings.fiend.spoilRadius, settings.fiend.spoilRadius), 0, cols - 1);
+      const y = clamp(fiend.y + rand(-settings.fiend.spoilRadius, settings.fiend.spoilRadius), 0, rows - 1);
       if (state.terrain[y][x].food > 0) {
-        state.terrain[y][x].food = Math.max(0, state.terrain[y][x].food - rand(1, 3));
-        state.terrain[y][x].rot = clamp(state.terrain[y][x].rot + 4, 0, 10);
+        state.terrain[y][x].food = Math.max(0, state.terrain[y][x].food - rand(settings.fiend.spoilFoodMin, settings.fiend.spoilFoodMax));
+        state.terrain[y][x].rot = clamp(state.terrain[y][x].rot + settings.fiend.spoilRotGain, 0, 10);
         spoiled += 1;
       }
     }
     addLog(`The Rot Fiend spoils ${spoiled} fruit patches.`, "bad");
   } else if (miracle === 2) {
-    const victims = people.sort((a, b) => distance(fiend, a) - distance(fiend, b)).slice(0, 2);
-    for (const victim of victims) influenceRot(victim, rand(5, 9), "the fiend whispered decay");
+    const victims = people.sort((a, b) => distance(fiend, a) - distance(fiend, b)).slice(0, settings.fiend.whisperVictims);
+    for (const victim of victims) influenceRot(victim, rand(settings.fiend.whisperRotMin, settings.fiend.whisperRotMax), "the fiend whispered decay");
     addLog("The Rot Fiend whispers decay into mortal dreams.", "bad");
   } else {
     const cultist = fiendFollowers()[0] || people[rand(0, people.length - 1)];
-    influenceRot(cultist, 10, "a rot blessing took root");
-    cultist.health = clamp(cultist.health + 12, 0, 100);
+    influenceRot(cultist, settings.fiend.rotBlessingGain, "a rot blessing took root");
+    cultist.health = clamp(cultist.health + settings.fiend.rotBlessingHealthGain, 0, 100);
     addLog(`The Rot Fiend blesses ${cultist.name} with a wet black crown.`, "bad");
   }
 }
 
 function maybeTriggerEvent() {
-  if (state.event || state.day < 8 || state.day % 7 !== 0 || !chance(45)) return;
+  if (state.event || state.day < settings.events.firstEventDay || state.day % settings.events.intervalDays !== 0 || !chance(settings.events.chance)) return;
   const events = [
-    { type: "drought", title: "Drought", cost: 7, text: "The grove dries out. Fruit begins to fail." },
-    { type: "sickness", title: "Sickness", cost: 9, text: "A coughing sickness moves through the camp." },
-    { type: "beast", title: "Beast Tracks", cost: 8, text: "Fresh tracks circle the tribe. A monster is near." },
-    { type: "rotBloom", title: "Rot Bloom", cost: 10, text: "Purple fungus blooms from the soil." },
-    { type: "badOmen", title: "Bad Omen", cost: 6, text: "The people dream of fruit rotting in their hands." },
+    { type: "drought", title: "Drought", cost: settings.events.droughtCost, text: "The grove dries out. Fruit begins to fail." },
+    { type: "sickness", title: "Sickness", cost: settings.events.sicknessCost, text: "A coughing sickness moves through the camp." },
+    { type: "beast", title: "Beast Tracks", cost: settings.events.beastCost, text: "Fresh tracks circle the tribe. A monster is near." },
+    { type: "rotBloom", title: "Rot Bloom", cost: settings.events.rotBloomCost, text: "Purple fungus blooms from the soil." },
+    { type: "badOmen", title: "Bad Omen", cost: settings.events.badOmenCost, text: "The people dream of fruit rotting in their hands." },
   ];
   state.event = events[rand(0, events.length - 1)];
   applyEventStart(state.event);
@@ -506,14 +563,14 @@ function applyEventStart(event) {
   addLog(`${event.title}: ${event.text}`, "bad");
   if (event.type === "drought") {
     for (const row of state.terrain) {
-      for (const tile of row) if (tile.food > 0 && chance(35)) tile.food -= 1;
+      for (const tile of row) if (tile.food > 0 && chance(settings.events.droughtFoodLossChance)) tile.food -= 1;
     }
   }
-  if (event.type === "sickness") state.sicknessTicks = 6;
+  if (event.type === "sickness") state.sicknessTicks = settings.events.sicknessDuration;
   if (event.type === "beast") state.monsters.push(spawnMonster());
-  if (event.type === "rotBloom") spreadRotAround(state.fiend, 5, 5);
+  if (event.type === "rotBloom") spreadRotAround(state.fiend, settings.events.rotBloomRadius, settings.events.rotBloomStrength);
   if (event.type === "badOmen") {
-    for (const person of livingPeople()) influenceFaith(person, -6, "a bad omen went unanswered");
+    for (const person of livingPeople()) influenceFaith(person, -settings.events.badOmenFaithLoss, "a bad omen went unanswered");
   }
 }
 
@@ -527,7 +584,7 @@ function answerEvent() {
     if (monster) monster.alive = false;
   }
   if (event.type === "drought") growFruitNear({ x: 13, y: 10 }, 14, 3);
-  if (event.type === "badOmen") for (const person of livingPeople()) influenceFaith(person, 8, "a god answered the omen");
+  if (event.type === "badOmen") for (const person of livingPeople()) influenceFaith(person, settings.events.badOmenAnswerFaithGain, "a god answered the omen");
   addLog(`You answer the ${event.title.toLowerCase()} with fruit-domain power.`, "good");
   state.event = null;
   draw();
@@ -535,7 +592,9 @@ function answerEvent() {
 }
 
 function checkDivinity() {
-  state.divinity = state.totalFaithEarned >= 25 ? 2 : 1;
+  state.maxFaithHeld = Math.max(state.maxFaithHeld, state.faith);
+  if (state.maxFaithHeld >= settings.divinity2FaithThreshold) state.divinity2Unlocked = true;
+  state.divinity = state.divinity2Unlocked ? 2 : 1;
 }
 
 function checkEnd() {
@@ -545,13 +604,13 @@ function checkEnd() {
   if (!state.fiend.alive) {
     state.ended = true;
     addLog("Victory: lightning splits the Rot Fiend and the tribe remembers your name.", "gold");
-  } else if (yours >= winFollowers) {
+  } else if (yours >= settings.winFollowers) {
     state.ended = true;
     addLog("Victory: the tribe becomes an orchard cult strong enough to resist the fiend.", "gold");
   } else if (alive === 0) {
     state.ended = true;
     addLog("Defeat: no living voices remain to worship anything.", "bad");
-  } else if (theirs >= loseFiendFollowers) {
+  } else if (theirs >= settings.loseFiendFollowers) {
     state.ended = true;
     addLog("Defeat: the Rot Fiend claims enough worshippers to drown your cult.", "bad");
   }
@@ -599,15 +658,15 @@ function growFruitNear(center, count, faithGain) {
       grown += 1;
     }
   }
-  for (const person of livingPeople()) if (distance(person, center) <= 7) influenceFaith(person, faithGain, "witnessing sudden fruit");
+  for (const person of livingPeople()) if (distance(person, center) <= settings.miracles.growFruitRadius) influenceFaith(person, faithGain, "witnessing sudden fruit");
   return grown;
 }
 
 function growFruit() {
-  if (!spendFaith(3)) return;
+  if (!spendFaith(settings.miracles.growFruitCost)) return;
   const people = livingPeople();
   const center = people[rand(0, people.length - 1)] || { x: 13, y: 10 };
-  const grown = growFruitNear(center, 9, 10);
+  const grown = growFruitNear(center, settings.miracles.growFruitPatches, settings.miracles.growFruitFaithGain);
   addLog(`You grow ${grown} patches of miraculous fruit.`, "good");
   draw();
   renderUi();
@@ -620,29 +679,29 @@ function blessVitality() {
     return;
   }
   const person = state.people.find((candidate) => candidate.id === state.selectedId && candidate.alive);
-  if (!person || !spendFaith(5)) return;
-  person.health = clamp(person.health + 35, 0, 100);
-  person.hunger = clamp(person.hunger - 12, 0, 100);
-  person.rot = clamp(person.rot - 18, 0, 100);
-  person.blessed = 5;
-  influenceFaith(person, 25, "feeling divine sweetness in their blood");
+  if (!person || !spendFaith(settings.miracles.blessVitalityCost)) return;
+  person.health = clamp(person.health + settings.miracles.blessHealthGain, 0, 100);
+  person.hunger = clamp(person.hunger - settings.miracles.blessHungerReduction, 0, 100);
+  person.rot = clamp(person.rot - settings.miracles.blessRotReduction, 0, 100);
+  person.blessed = settings.miracles.blessTicks;
+  influenceFaith(person, settings.miracles.blessFaithGain, "feeling divine sweetness in their blood");
   addLog(`You bless ${person.name} with fruit vitality.`, "good");
   draw();
   renderUi();
 }
 
 function sweetScent() {
-  if (!spendFaith(4)) return;
-  state.scentTicks = 4;
-  for (const person of livingPeople()) influenceFaith(person, 7, "smelling impossible blossoms");
+  if (!spendFaith(settings.miracles.sweetScentCost)) return;
+  state.scentTicks = settings.miracles.sweetScentTicks;
+  for (const person of livingPeople()) influenceFaith(person, settings.miracles.sweetScentFaithGain, "smelling impossible blossoms");
   addLog("A sweet scent spreads; hungry people seek fruit more eagerly.", "good");
   draw();
   renderUi();
 }
 
 function greatHarvest() {
-  if (state.divinity < 2 || !spendFaith(12)) return;
-  const grown = growFruitNear({ x: 13, y: 10 }, 28, 10);
+  if (state.divinity < 2 || !spendFaith(settings.miracles.greatHarvestCost)) return;
+  const grown = growFruitNear({ x: 13, y: 10 }, settings.miracles.greatHarvestPatches, settings.miracles.greatHarvestFaithGain);
   addLog(`Great Harvest floods the land with ${grown} fruit patches.`, "gold");
   draw();
   renderUi();
@@ -659,24 +718,24 @@ function cleanseArea(center, radius) {
   }
   for (const person of livingPeople()) {
     if (distance(person, center) <= radius) {
-      person.rot = clamp(person.rot - 28, 0, 100);
-      person.fear = clamp(person.fear - 18, 0, 100);
-      influenceFaith(person, 4, "rot was cleansed nearby");
+      person.rot = clamp(person.rot - settings.miracles.cleanseRotReduction, 0, 100);
+      person.fear = clamp(person.fear - settings.miracles.cleanseFearReduction, 0, 100);
+      influenceFaith(person, settings.miracles.cleanseFaithGain, "rot was cleansed nearby");
     }
   }
 }
 
 function cleanseRot() {
-  if (state.divinity < 2 || !spendFaith(8)) return;
+  if (state.divinity < 2 || !spendFaith(settings.miracles.cleanseRotCost)) return;
   const selected = state.people.find((person) => person.id === state.selectedId && person.alive);
-  cleanseArea(selected || { x: 13, y: 10 }, 6);
+  cleanseArea(selected || { x: 13, y: 10 }, settings.miracles.cleanseRadius);
   addLog("You cleanse rot from soil and souls.", "good");
   draw();
   renderUi();
 }
 
 function driveBeast() {
-  if (state.divinity < 2 || !spendFaith(10)) return;
+  if (state.divinity < 2 || !spendFaith(settings.miracles.driveBeastCost)) return;
   const monster = nearestLiving({ x: 13, y: 10 }, state.monsters);
   if (monster) {
     const realMonster = state.monsters.find((item) => item.id === monster.id);
@@ -690,7 +749,7 @@ function driveBeast() {
 }
 
 function lightningFiend() {
-  if (state.divinity < 2 || !state.fiend.alive || !spendFaith(50)) return;
+  if (state.divinity < 2 || !state.fiend.alive || !spendFaith(settings.miracles.lightningFiendCost)) return;
   state.fiend.alive = false;
   checkEnd();
   draw();
@@ -840,23 +899,108 @@ function sortedPeople() {
   });
 }
 
+function settingLabel(path) {
+  return path
+    .replace(/\./g, " ")
+    .replace(/([A-Z])/g, " $1")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function getSetting(path) {
+  return path.split(".").reduce((value, key) => value[key], settings);
+}
+
+function setSetting(path, value) {
+  const parts = path.split(".");
+  let target = settings;
+  for (const part of parts.slice(0, -1)) target = target[part];
+  target[parts.at(-1)] = value;
+}
+
+function collectSettingPaths(source = DEFAULT_GAME_SETTINGS, prefix = "") {
+  const paths = [];
+  for (const [key, value] of Object.entries(source)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === "object" && !Array.isArray(value)) paths.push(...collectSettingPaths(value, path));
+    else if (typeof value === "number") paths.push(path);
+  }
+  return paths;
+}
+
+function renderSettingsFields() {
+  const grouped = collectSettingPaths().reduce((groups, path) => {
+    const group = path.includes(".") ? path.split(".")[0] : "game";
+    groups[group] = groups[group] || [];
+    groups[group].push(path);
+    return groups;
+  }, {});
+
+  ui.settingsFields.innerHTML = Object.entries(grouped).map(([group, paths]) => `
+    <fieldset>
+      <legend>${settingLabel(group)}</legend>
+      ${paths.map((path) => `
+        <label>
+          <span>${settingLabel(path.replace(`${group}.`, ""))}</span>
+          <input type="number" step="1" data-setting-path="${path}" value="${getSetting(path)}">
+        </label>
+      `).join("")}
+    </fieldset>
+  `).join("");
+}
+
+function openSettings() {
+  renderSettingsFields();
+  ui.settingsPanel.hidden = false;
+}
+
+function closeSettings() {
+  ui.settingsPanel.hidden = true;
+}
+
+function applySettingsFromForm() {
+  for (const input of ui.settingsFields.querySelectorAll("input[data-setting-path]")) {
+    setSetting(input.dataset.settingPath, Number(input.value));
+  }
+  localStorage.setItem(settingsStorageKey, JSON.stringify(settings));
+  closeSettings();
+  restartGame();
+}
+
+function resetSettings() {
+  settings = clone(DEFAULT_GAME_SETTINGS);
+  localStorage.removeItem(settingsStorageKey);
+  renderSettingsFields();
+  restartGame();
+}
+
+function renderMiracleLabels() {
+  ui.growFruit.innerHTML = `Grow Fruit <span>${settings.miracles.growFruitCost} faith</span>`;
+  ui.blessVitality.innerHTML = `Bless Vitality <span>${settings.miracles.blessVitalityCost} faith</span>`;
+  ui.sweetScent.innerHTML = `Sweet Scent <span>${settings.miracles.sweetScentCost} faith</span>`;
+  ui.greatHarvest.innerHTML = `Great Harvest <span>${settings.miracles.greatHarvestCost} faith, divinity 2</span>`;
+  ui.cleanseRot.innerHTML = `Cleanse Rot <span>${settings.miracles.cleanseRotCost} faith, divinity 2</span>`;
+  ui.driveBeast.innerHTML = `Drive Beast <span>${settings.miracles.driveBeastCost} faith, divinity 2</span>`;
+  ui.lightningFiend.innerHTML = `Lightning Fiend <span>${settings.miracles.lightningFiendCost} faith, divinity 2</span>`;
+}
+
 function renderUi() {
   checkDivinity();
+  renderMiracleLabels();
   const yours = playerFollowers().length;
   const theirs = fiendFollowers().length;
   ui.faithPoints.textContent = state.faith;
   ui.divinityLevel.textContent = state.divinity;
-  ui.followers.textContent = `${yours} / ${winFollowers}`;
-  ui.fiendFollowers.textContent = `${theirs} / ${loseFiendFollowers}`;
+  ui.followers.textContent = `${yours} / ${settings.winFollowers}`;
+  ui.fiendFollowers.textContent = `${theirs} / ${settings.loseFiendFollowers}`;
   ui.crisisStatus.textContent = state.event ? state.event.title : "None";
 
-  ui.growFruit.disabled = state.faith < 3 || state.ended;
-  ui.blessVitality.disabled = state.faith < 5 || state.ended;
-  ui.sweetScent.disabled = state.faith < 4 || state.ended;
-  ui.greatHarvest.disabled = state.divinity < 2 || state.faith < 12 || state.ended;
-  ui.cleanseRot.disabled = state.divinity < 2 || state.faith < 8 || state.ended;
-  ui.driveBeast.disabled = state.divinity < 2 || state.faith < 10 || state.ended;
-  ui.lightningFiend.disabled = state.divinity < 2 || state.faith < 50 || !state.fiend.alive || state.ended;
+  ui.growFruit.disabled = state.faith < settings.miracles.growFruitCost || state.ended;
+  ui.blessVitality.disabled = state.faith < settings.miracles.blessVitalityCost || state.ended;
+  ui.sweetScent.disabled = state.faith < settings.miracles.sweetScentCost || state.ended;
+  ui.greatHarvest.disabled = state.divinity < 2 || state.faith < settings.miracles.greatHarvestCost || state.ended;
+  ui.cleanseRot.disabled = state.divinity < 2 || state.faith < settings.miracles.cleanseRotCost || state.ended;
+  ui.driveBeast.disabled = state.divinity < 2 || state.faith < settings.miracles.driveBeastCost || state.ended;
+  ui.lightningFiend.disabled = state.divinity < 2 || state.faith < settings.miracles.lightningFiendCost || !state.fiend.alive || state.ended;
   ui.answerEvent.disabled = !state.event || state.faith < (state.event?.cost || 0) || state.ended;
   ui.answerEventCost.textContent = `${state.event?.cost || 0} faith`;
   ui.pauseToggle.textContent = state.paused ? "Resume" : "Pause";
@@ -911,10 +1055,13 @@ ui.cleanseRot.addEventListener("click", cleanseRot);
 ui.driveBeast.addEventListener("click", driveBeast);
 ui.lightningFiend.addEventListener("click", lightningFiend);
 ui.answerEvent.addEventListener("click", answerEvent);
+ui.settingsToggle.addEventListener("click", openSettings);
+ui.closeSettings.addEventListener("click", closeSettings);
+ui.applySettings.addEventListener("click", applySettingsFromForm);
+ui.resetSettings.addEventListener("click", resetSettings);
 ui.pauseToggle.addEventListener("click", () => {
   state.paused = !state.paused;
   renderUi();
 });
 
-init();
-setInterval(tick, 1500);
+restartGame();
