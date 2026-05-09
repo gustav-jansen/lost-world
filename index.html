@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Little God Prototype</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Prototype 01</p>
+          <h1>Little God: Fruit Domain</h1>
+          <p class="intro">
+            Keep a stone-age tribe alive and earn worship through small miracles.
+            Win when 5 people become followers.
+          </p>
+        </div>
+        <div class="status-card">
+          <div>
+            <span>Faith</span>
+            <strong id="faithPoints">0</strong>
+          </div>
+          <div>
+            <span>Divinity</span>
+            <strong id="divinityLevel">1</strong>
+          </div>
+          <div>
+            <span>Followers</span>
+            <strong id="followers">0 / 5</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="game-layout">
+        <div class="world-panel">
+          <canvas id="world" width="720" height="520" aria-label="Game world"></canvas>
+          <div class="legend">
+            <span><i class="tile grass"></i>Grass</span>
+            <span><i class="tile forest"></i>Forest</span>
+            <span><i class="tile water"></i>Water</span>
+            <span><i class="tile fruit"></i>Fruit</span>
+            <span><i class="person-dot"></i>Person</span>
+          </div>
+        </div>
+
+        <aside class="side-panel">
+          <section class="panel-block">
+            <h2>Miracles</h2>
+            <button id="growFruit" type="button">Grow Fruit <span>3 faith</span></button>
+            <button id="blessVitality" type="button">Bless Vitality <span>5 faith</span></button>
+            <button id="sweetScent" type="button">Sweet Scent <span>4 faith</span></button>
+            <p class="hint">Select a person, then bless them. Other miracles affect the tribe's area.</p>
+          </section>
+
+          <section class="panel-block">
+            <h2>Selected Person</h2>
+            <div id="selectedPerson" class="person-card muted">Click a person on the map.</div>
+          </section>
+
+          <section class="panel-block">
+            <h2>Tribe</h2>
+            <div id="peopleList" class="people-list"></div>
+          </section>
+        </aside>
+      </section>
+
+      <section class="log-panel">
+        <div class="log-heading">
+          <h2>World Log</h2>
+          <button id="pauseToggle" type="button">Pause</button>
+        </div>
+        <ol id="eventLog"></ol>
+      </section>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
