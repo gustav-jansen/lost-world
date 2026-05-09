@@ -377,9 +377,29 @@ function fixedDomain(index) {
 function renderDomainCards() {
   ui.domainCards.innerHTML = state.domainCards.map((domainCard, index) => {
     const revealed = state.revealedDomainId === domainCard.id;
+    const midpoint = (state.domainCards.length - 1) / 2;
+    const offset = index - midpoint;
+    const arc = Math.abs(offset) / midpoint;
+    const angle = Math.round((offset / midpoint) * 62);
+    const x = (offset * 2.65).toFixed(2);
+    const y = (4.5 - 9.7 * arc * arc).toFixed(2);
+    const zIndex = revealed ? 100 : Math.round(60 - Math.abs(offset));
+    const style = `--card-x:clamp(-29rem, ${x}vw, 29rem); --card-y:${y}rem; --card-angle:${angle}deg; --card-z:${zIndex}; --domain-color:${domainCard.color};`;
     return `
-      <button class="domain-card ${revealed ? "revealed" : ""}" type="button" data-index="${index}" ${state.domain ? "disabled" : ""}>
-        ${revealed ? `<strong>${domainCard.name}</strong><small>${domainCard.description}</small>` : `<strong>?</strong><small>Card ${index + 1}</small>`}
+      <button class="domain-card ${revealed ? "revealed" : ""}" type="button" data-index="${index}" style="${style}" ${state.domain ? "disabled" : ""}>
+        <span class="card-corner top">${revealed ? domainCard.name.slice(0, 1) : "I"}</span>
+        <span class="card-corner bottom">${revealed ? domainCard.name.slice(0, 1) : "I"}</span>
+        ${revealed ? `
+          <span class="card-face">
+            <strong>${domainCard.name}</strong>
+            <small>${domainCard.description}</small>
+          </span>
+        ` : `
+          <span class="card-back">
+            <span class="card-sigil">*</span>
+            <small>Card ${index + 1}</small>
+          </span>
+        `}
       </button>
     `;
   }).join("");
